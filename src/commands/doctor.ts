@@ -8,14 +8,15 @@ export async function doctor(_args: string[]): Promise<number> {
   let problems = 0;
   // sbx on PATH
   try {
-    const r = await runSbx(["--version"]);
+    const r = await runSbx(["version"]);
     if (r.exitCode !== 0) {
       process.stderr.write(formatError(new AgentboxError("sbx CLI is not working", {
         fix: "Install Docker Sandboxes: brew install docker/tap/sbx",
       })) + "\n");
       problems++;
     } else {
-      process.stdout.write(`✓ sbx: ${r.stdout.trim()}\n`);
+      const versionLine = r.stdout.split("\n").map(s => s.trim()).filter(Boolean)[0] ?? "(unknown)";
+      process.stdout.write(`✓ sbx: ${versionLine}\n`);
     }
   } catch (e) {
     process.stderr.write(formatError(new AgentboxError("sbx CLI not found on PATH", {
@@ -25,29 +26,42 @@ export async function doctor(_args: string[]): Promise<number> {
     return 1;
   }
 
-  // Anthropic secret
+  // === Auth checks ===
+  let hasApiKey = false;
+  let apiKeyError: unknown = undefined;
   try {
     const r = await runSbx(["secret", "ls", "-g"]);
-    const secrets = r.stdout.split("\n").map((s) => s.trim()).filter(Boolean);
-    if (secrets.includes("anthropic")) {
-      process.stdout.write("✓ anthropic secret configured\n");
+    if (r.exitCode === 0) {
+      const secrets = r.stdout.split("\n").map((s) => s.trim()).filter(Boolean);
+      hasApiKey = secrets.includes("anthropic");
     } else {
-      process.stderr.write(formatError(new AgentboxError("anthropic secret not configured", {
-        fix: "sbx secret set -g anthropic",
-      })) + "\n");
-      problems++;
+      apiKeyError = new Error(`sbx secret ls failed: ${r.stderr.trim()}`);
     }
   } catch (e) {
-    process.stderr.write(formatError(e) + "\n");
-    problems++;
+    apiKeyError = e;
   }
 
-  // Session credentials (Keychain on macOS, file on Linux)
   const hasSession = await hasHostClaudeCredentials();
+
+  // Reporting:
+  if (hasApiKey) {
+    process.stdout.write("✓ anthropic API key configured (sbx secret)\n");
+  } else if (apiKeyError) {
+    // Couldn't even check — surface that
+    process.stderr.write(formatError(apiKeyError) + "\n");
+  }
+
   if (hasSession) {
-    process.stdout.write("✓ Claude session credentials available (auth: session ready)\n");
-  } else {
-    process.stdout.write("ℹ no Claude session credentials found (run `claude` to authenticate if you want auth: session)\n");
+    process.stdout.write("✓ Claude session credentials available\n");
+  }
+
+  // Either/or evaluation: only a problem if BOTH are missing.
+  if (!hasApiKey && !hasSession) {
+    process.stderr.write(formatError(new AgentboxError(
+      "no Anthropic auth available — neither API key (sbx secret) nor session credentials found",
+      { fix: "Either run `sbx secret set -g anthropic` for API-key auth, or run `claude` to log in for session auth" },
+    )) + "\n");
+    problems++;
   }
 
   // Registry summary + drift detection
