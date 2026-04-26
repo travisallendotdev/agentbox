@@ -6,6 +6,7 @@ import { shell } from "./commands/shell.ts";
 import { rm } from "./commands/rm.ts";
 import { ls } from "./commands/ls.ts";
 import { doctor } from "./commands/doctor.ts";
+import { init } from "./commands/init.ts";
 import { formatError } from "./errors.ts";
 
 const USAGE = `agentbox — declarative Claude Code sandboxes on Docker sbx
@@ -16,6 +17,7 @@ Usage:
   agentbox stop <name>
   agentbox shell <name>
   agentbox rm <name> [--force] [--prune-branches]
+  agentbox init [<path>] [--force]
   agentbox ls
   agentbox doctor
 
@@ -23,7 +25,7 @@ Run agentbox <command> --help for command-specific help.
 `;
 
 const HANDLERS: Record<string, (args: string[]) => Promise<number>> = {
-  up, start, stop, shell, rm, ls, doctor,
+  up, start, stop, shell, rm, ls, doctor, init,
 };
 
 export async function runCli(argv: string[]): Promise<number> {
