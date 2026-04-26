@@ -73,21 +73,21 @@ export async function runUp(flags: UpFlags): Promise<number> {
   let pastRegistry = false;
   let stageDir: string | undefined;
 
-  // If --replace is in effect and state exists, tear it down before proceeding.
+  // If --replace is in effect, tear down anything that might survive from a
+  // prior run. sbx state, the local sandbox dir, registry entries, and stale
+  // worktree metadata can each exist independently (e.g. a hung run that
+  // created the sbx VM but never wrote the registry entry). Each step is
+  // best-effort and idempotent — we always attempt them all.
   if (plan.replace) {
-    const hasState = existsSync(sandboxDirPath) || (existingEntry !== undefined);
-    if (hasState) {
-      log.info(`replace: tearing down existing state for ${plan.name}`);
-      try { await runSbx(["rm", plan.name]); } catch { /* not all configs registered with sbx */ }
-      if (existingEntry) {
-        try { await removeEntry(plan.name); } catch { /* ignore */ }
-      }
-      if (existsSync(sandboxDirPath)) rmSync(sandboxDirPath, { recursive: true, force: true });
-      // Prune stale worktree metadata in the source repos from the new plan (best-effort).
-      for (const r of plan.repos) {
-        if (r.source !== "local") continue;
-        try { await pruneWorktrees(r.path); } catch { /* ignore */ }
-      }
+    log.info(`replace: tearing down existing state for ${plan.name}`);
+    try { await runSbx(["rm", plan.name]); } catch { /* sbx may not have it */ }
+    if (existingEntry) {
+      try { await removeEntry(plan.name); } catch { /* ignore */ }
+    }
+    if (existsSync(sandboxDirPath)) rmSync(sandboxDirPath, { recursive: true, force: true });
+    for (const r of plan.repos) {
+      if (r.source !== "local") continue;
+      try { await pruneWorktrees(r.path); } catch { /* ignore */ }
     }
   }
 
