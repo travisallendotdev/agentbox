@@ -18,7 +18,10 @@ export async function createHostWorktrees(sandboxName: string, repos: ResolvedRe
     }
   } catch (e) {
     for (const c of created.reverse()) {
-      try { await removeWorktree(c.repoDir, c.worktreePath, { force: true }); } catch {}
+      try { await removeWorktree(c.repoDir, c.worktreePath, { force: true }); }
+      catch (cleanupErr) {
+        console.warn(`agentbox: rollback warning: failed to remove worktree ${c.worktreePath}: ${(cleanupErr as Error).message}`);
+      }
     }
     if (existsSync(parent)) rmSync(parent, { recursive: true, force: true });
     throw e;
@@ -34,7 +37,13 @@ export async function removeHostWorktrees(
   for (const r of repos) {
     if (r.source !== "local") continue;
     const wt = join(parent, r.name);
-    if (existsSync(wt)) await removeWorktree(r.path, wt, { force: opts.force });
+    if (!existsSync(wt)) continue;
+    if (!existsSync(r.path)) {
+      // Source repo gone; can't use git worktree remove, but we can still clean up the worktree dir.
+      rmSync(wt, { recursive: true, force: true });
+      continue;
+    }
+    await removeWorktree(r.path, wt, { force: opts.force });
   }
   if (existsSync(parent)) rmSync(parent, { recursive: true, force: true });
 }

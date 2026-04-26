@@ -38,6 +38,7 @@ test("rolls back partial worktrees on later failure", async () => {
     ]),
   ).rejects.toThrow();
   expect(existsSync(join(workdir, "sandboxes/bar/repos/a"))).toBe(false);
+  expect(existsSync(join(workdir, "sandboxes/bar/repos"))).toBe(false);
 });
 
 test("removeHostWorktrees deletes worktrees", async () => {
@@ -47,6 +48,23 @@ test("removeHostWorktrees deletes worktrees", async () => {
   ]);
   await removeHostWorktrees("baz", [{ source: "local", path: r1, branch: "agentbox/baz", name: "a" }], { force: false });
   expect(existsSync(join(workdir, "sandboxes/baz/repos/a"))).toBe(false);
+  expect(existsSync(join(workdir, "sandboxes/baz/repos"))).toBe(false);
+});
+
+test("removeHostWorktrees handles a deleted source repo gracefully", async () => {
+  const r1 = makeRepo();
+  await createHostWorktrees("gone", [
+    { source: "local", path: r1, branch: "agentbox/gone", name: "a" },
+  ]);
+  // Delete the source repo before tearing down
+  const { rmSync } = await import("node:fs");
+  rmSync(r1, { recursive: true, force: true });
+  // removeHostWorktrees should still clean up the worktree dir
+  await removeHostWorktrees("gone", [
+    { source: "local", path: r1, branch: "agentbox/gone", name: "a" },
+  ], { force: false });
+  expect(existsSync(join(workdir, "sandboxes/gone/repos/a"))).toBe(false);
+  expect(existsSync(join(workdir, "sandboxes/gone/repos"))).toBe(false);
 });
 
 test("git repos in the list are skipped (no worktree action)", async () => {
