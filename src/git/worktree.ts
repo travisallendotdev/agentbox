@@ -60,3 +60,16 @@ export async function listWorktrees(repoDir: string): Promise<WorktreeInfo[]> {
     };
   });
 }
+
+/**
+ * Remove worktree metadata for paths that no longer exist on disk.
+ * Safe and idempotent — only affects "prunable" worktrees per git's own check.
+ */
+export async function pruneWorktrees(repoDir: string): Promise<void> {
+  const r = await git(repoDir, ["worktree", "prune"]);
+  // Don't throw on non-zero — prune can fail on permission issues but
+  // the immediate failure during addWorktree will be more informative.
+  if (r.code !== 0) {
+    // best-effort; downstream addWorktree will surface a clear error if needed
+  }
+}

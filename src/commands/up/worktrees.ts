@@ -1,7 +1,7 @@
 import { mkdirSync, existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { homePaths } from "../../paths.ts";
-import { addWorktree, ensureBranch, removeWorktree } from "../../git/worktree.ts";
+import { addWorktree, ensureBranch, pruneWorktrees, removeWorktree } from "../../git/worktree.ts";
 import { AgentboxError } from "../../errors.ts";
 import type { ResolvedRepo } from "../../config/resolve-repos.ts";
 
@@ -37,6 +37,7 @@ export async function createHostWorktrees(sandboxName: string, repos: ResolvedRe
     for (const r of repos) {
       if (r.source !== "local") continue;
       const wt = join(parent, r.name);
+      await pruneWorktrees(r.path);   // NEW: clean up any stale metadata
       await ensureBranch(r.path, r.branch);
       await addWorktree(r.path, wt, r.branch);
       created.push({ repoDir: r.path, worktreePath: wt });

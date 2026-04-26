@@ -1,8 +1,8 @@
 import { test, expect, beforeEach } from "bun:test";
 import {
-  ensureBranch, addWorktree, removeWorktree, listWorktrees,
+  ensureBranch, addWorktree, removeWorktree, listWorktrees, pruneWorktrees,
 } from "../../../src/git/worktree.ts";
-import { mkdtempSync, realpathSync } from "node:fs";
+import { mkdtempSync, realpathSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -62,4 +62,29 @@ test("removeWorktree --force removes a dirty worktree", async () => {
   await removeWorktree(r, wt, { force: true });
   const list = await listWorktrees(r);
   expect(list.some((w) => w.path === wtReal)).toBe(false);
+});
+
+test("pruneWorktrees removes worktrees whose disk path is gone", async () => {
+  const r = makeRepo();
+  const wtBase = mkdtempSync(join(tmpdir(), "agbx-prune-"));
+  const wt = join(wtBase, "work");
+  const wtReal = realpathSync(wtBase) + "/work"; // resolve symlinks like /tmp -> /private/tmp
+  mkdirSync(wt, { recursive: true }); // create dir so addWorktree can place it
+  await ensureBranch(r, "agentbox/p");
+  await addWorktree(r, wt, "agentbox/p");
+  // Forcibly remove the worktree dir from disk WITHOUT git worktree remove
+  await Bun.$`rm -rf ${wt}`.quiet();
+  // listWorktrees should still show it (via its real path)
+  const before = await listWorktrees(r);
+  expect(before.some((w) => w.path === wtReal)).toBe(true);
+  // After prune, it should be gone
+  await pruneWorktrees(r);
+  const after = await listWorktrees(r);
+  expect(after.some((w) => w.path === wtReal)).toBe(false);
+});
+
+test("pruneWorktrees is idempotent on a clean repo", async () => {
+  const r = makeRepo();
+  await pruneWorktrees(r); // no-op, no throw
+  await pruneWorktrees(r); // still no-op
 });

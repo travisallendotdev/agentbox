@@ -1,10 +1,10 @@
 import { mkdirSync, existsSync, rmSync } from "node:fs";
 import { homePaths } from "../../paths.ts";
-import { addEntry, removeEntry } from "../../registry/registry.ts";
+import { addEntry, getEntry, removeEntry } from "../../registry/registry.ts";
 import { runSbx, runSbxInherit } from "../../sbx/client.ts";
 import { injectFiles } from "../../sbx/inject.ts";
 import { createLogger, type Logger } from "../../log/logger.ts";
-import { formatError } from "../../errors.ts";
+import { AgentboxError, formatError } from "../../errors.ts";
 import { buildUpPlan, type UpPlan } from "./plan.ts";
 import { applyNetworkPolicy, createSandbox } from "./create.ts";
 import { stageInjection } from "./stage.ts";
@@ -13,10 +13,15 @@ import { cloneGitRepos } from "./clone.ts";
 import { runLifecyclePhase } from "../../lifecycle/hooks.ts";
 import type { UpFlags } from "./flags.ts";
 
-async function rollback(plan: UpPlan, log: Logger, opts: { pastRegistry: boolean }): Promise<void> {
+async function rollback(plan: UpPlan, log: Logger, opts: { pastCreate: boolean; pastWorktrees: boolean; pastRegistry: boolean }): Promise<void> {
   log.warn("rolling back partial sandbox");
-  try { await runSbx(["rm", plan.name]); } catch (e) { log.warn(`sbx rm: ${(e as Error).message}`); }
-  try { await removeHostWorktrees(plan.name, plan.repos, { force: true }); } catch (e) { log.warn(`worktree cleanup: ${(e as Error).message}`); }
+  if (opts.pastCreate) {
+    try { await runSbx(["rm", plan.name]); } catch (e) { log.warn(`sbx rm: ${(e as Error).message}`); }
+  }
+  if (opts.pastWorktrees) {
+    try { await removeHostWorktrees(plan.name, plan.repos, { force: true }); }
+    catch (e) { log.warn(`worktree cleanup: ${(e as Error).message}`); }
+  }
   const sb = homePaths().sandboxDir(plan.name);
   if (existsSync(sb)) rmSync(sb, { recursive: true, force: true });
   if (opts.pastRegistry) {
@@ -39,7 +44,30 @@ export async function runUp(flags: UpFlags): Promise<number> {
     return 1;
   }
 
+  // Pre-flight: registry collision check before any disk changes.
+  const existingEntry = await getEntry(plan.name);
+  if (existingEntry && !plan.replace) {
+    process.stderr.write(formatError(new AgentboxError(
+      `Sandbox '${plan.name}' already exists in the registry`,
+      { fix: "Run `agentbox rm " + plan.name + "` first, or pass --replace to overwrite" },
+    )) + "\n");
+    return 1;
+  }
+
+  // Pre-flight: leftover sandbox dir check (covers failed prior run where registry was never written).
+  const sandboxDirPath = homePaths().sandboxDir(plan.name);
+  if (existsSync(sandboxDirPath) && !plan.replace) {
+    if (!existingEntry) {
+      process.stderr.write(formatError(new AgentboxError(
+        `Leftover sandbox state at ${sandboxDirPath} (likely from a failed prior run)`,
+        { fix: "Run `agentbox rm " + plan.name + " --force` to clean up, or pass --replace to overwrite" },
+      )) + "\n");
+      return 1;
+    }
+  }
+
   const log = await createLogger(plan.name, { verbose: plan.verbose });
+  let pastWorktrees = false;
   let pastCreate = false;
   let pastRegistry = false;
   let stageDir: string | undefined;
@@ -49,7 +77,10 @@ export async function runUp(flags: UpFlags): Promise<number> {
     mkdirSync(homePaths().repoParentDir(plan.name), { recursive: true });
 
     // Host worktrees (no sbx state yet)
-    await log.phase("worktrees", () => createHostWorktrees(plan.name, plan.repos));
+    await log.phase("worktrees", async () => {
+      await createHostWorktrees(plan.name, plan.repos);
+      pastWorktrees = true;
+    });
     // Network policy
     await log.phase("network", () => applyNetworkPolicy(plan));
     // sbx create — past this point, rollback runs sbx rm
@@ -109,7 +140,9 @@ export async function runUp(flags: UpFlags): Promise<number> {
     return agentExit;
   } catch (err) {
     log.error(formatError(err));
-    if (pastCreate && !plan.keepOnError) await rollback(plan, log, { pastRegistry });
+    if ((pastCreate || pastWorktrees) && !plan.keepOnError) {
+      await rollback(plan, log, { pastCreate, pastWorktrees, pastRegistry });
+    }
     await log.close();
     cleanupStaging(stageDir);
     process.stderr.write(formatError(err) + "\n");
