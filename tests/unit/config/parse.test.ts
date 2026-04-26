@@ -1,5 +1,7 @@
 import { test, expect, beforeEach } from "bun:test";
 import { parseConfigFile } from "../../../src/config/parse.ts";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const FIX = join(import.meta.dir, "../../fixtures/configs");
@@ -28,15 +30,16 @@ test("missing host env var yields a clear error", async () => {
 });
 
 test("does not interpolate ${VAR} in fields outside the allowlist", async () => {
-  // Build a temp file inline
-  const tmpPath = "/tmp/agentbox-noninterp.yaml";
+  const dir = mkdtempSync(join(tmpdir(), "agbx-parse-"));
+  const tmpPath = join(dir, "noninterp.yaml");
   await Bun.write(tmpPath, `mode: ephemeral\nname: \${SHOULD_NOT_INTERP}\n`);
   const cfg = await parseConfigFile(tmpPath);
   expect(cfg.name).toBe("${SHOULD_NOT_INTERP}");
 });
 
 test("YAML syntax errors include line info", async () => {
-  const tmpPath = "/tmp/agentbox-bad.yaml";
+  const dir = mkdtempSync(join(tmpdir(), "agbx-parse-"));
+  const tmpPath = join(dir, "bad.yaml");
   await Bun.write(tmpPath, "mode: ephemeral\n  bad: : :\n");
   await expect(parseConfigFile(tmpPath)).rejects.toThrow();
 });
