@@ -2,7 +2,32 @@ import { mkdirSync, existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { homePaths } from "../../paths.ts";
 import { addWorktree, ensureBranch, removeWorktree } from "../../git/worktree.ts";
+import { AgentboxError } from "../../errors.ts";
 import type { ResolvedRepo } from "../../config/resolve-repos.ts";
+
+export async function assertWorktreesClean(sandboxName: string, repos: ResolvedRepo[]): Promise<void> {
+  const parent = homePaths().repoParentDir(sandboxName);
+  const dirty: string[] = [];
+  for (const r of repos) {
+    if (r.source !== "local") continue;
+    const wt = join(parent, r.name);
+    if (!existsSync(wt)) continue;
+    const proc = Bun.spawn({
+      cmd: ["git", "-C", wt, "status", "--porcelain"],
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const stdout = await new Response(proc.stdout).text();
+    await proc.exited;
+    if (stdout.trim() !== "") dirty.push(`${r.name} (${wt})`);
+  }
+  if (dirty.length > 0) {
+    throw new AgentboxError(
+      `worktree(s) have uncommitted changes: ${dirty.join(", ")}`,
+      { fix: "commit/stash changes, or pass --force to drop them" },
+    );
+  }
+}
 
 export async function createHostWorktrees(sandboxName: string, repos: ResolvedRepo[]): Promise<void> {
   const parent = homePaths().repoParentDir(sandboxName);

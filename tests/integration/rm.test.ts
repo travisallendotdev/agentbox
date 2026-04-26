@@ -4,6 +4,7 @@ import { addEntry, getEntry } from "../../src/registry/registry.ts";
 import { mkdtempSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { spawnSync } from "node:child_process";
 
 let workdir: string;
 beforeEach(() => {
@@ -39,4 +40,66 @@ test("rm errors when name is missing", async () => {
 test("rm errors on unknown flag", async () => {
   const code = await rm(["foo", "--bogus"]);
   expect(code).toBe(1);
+});
+
+function makeRepoWithWorktree(
+  workdir: string,
+  sandboxName: string,
+  repoName: string,
+  branch: string,
+): { repoPath: string; worktreePath: string } {
+  // Create a host repo
+  const repoPath = join(workdir, "src", repoName);
+  spawnSync("mkdir", ["-p", repoPath]);
+  spawnSync("git", ["init", "-q", repoPath]);
+  spawnSync("git", ["-C", repoPath, "commit", "-q", "--allow-empty", "-m", "init"]);
+  spawnSync("git", ["-C", repoPath, "branch", branch]);
+  // Create the worktree under <workdir>/sandboxes/<name>/repos/<repoName>
+  const worktreePath = join(workdir, "sandboxes", sandboxName, "repos", repoName);
+  spawnSync("mkdir", ["-p", join(workdir, "sandboxes", sandboxName, "repos")]);
+  spawnSync("git", ["-C", repoPath, "worktree", "add", worktreePath, branch]);
+  return { repoPath, worktreePath };
+}
+
+test("rm refuses on dirty worktree without --force, preserving registry entry and sbx VM", async () => {
+  const { repoPath, worktreePath } = makeRepoWithWorktree(workdir, "dirty", "myrepo", "agentbox/dirty");
+  // Make it dirty
+  writeFileSync(join(worktreePath, "x.txt"), "uncommitted");
+  const cfg = join(workdir, "c.yaml");
+  writeFileSync(cfg, `mode: durable\nname: dirty\nrepos:\n  - source: local\n    path: ${repoPath}\n`);
+  await addEntry({
+    name: "dirty", config_path: cfg, mode: "durable",
+    created_at: "x", sbx_sandbox_id: "dirty", config_hash: "0",
+  });
+  const code = await rm(["dirty"]);
+  expect(code).toBe(1);
+  // CRITICAL: registry entry must still exist
+  expect(await getEntry("dirty")).toBeDefined();
+  // Worktree dir must still exist (not destroyed)
+  expect(existsSync(worktreePath)).toBe(true);
+});
+
+test("rm with --force removes a dirty worktree", async () => {
+  const { repoPath, worktreePath } = makeRepoWithWorktree(workdir, "dforce", "myrepo", "agentbox/dforce");
+  writeFileSync(join(worktreePath, "x.txt"), "uncommitted");
+  const cfg = join(workdir, "c.yaml");
+  writeFileSync(cfg, `mode: durable\nname: dforce\nrepos:\n  - source: local\n    path: ${repoPath}\n`);
+  await addEntry({
+    name: "dforce", config_path: cfg, mode: "durable",
+    created_at: "x", sbx_sandbox_id: "dforce", config_hash: "0",
+  });
+  const code = await rm(["dforce", "--force"]);
+  expect(code).toBe(0);
+  expect(await getEntry("dforce")).toBeUndefined();
+  expect(existsSync(worktreePath)).toBe(false);
+});
+
+test("rm with unreadable config still completes via fallback", async () => {
+  await addEntry({
+    name: "noconfig", config_path: join(workdir, "missing.yaml"), mode: "durable",
+    created_at: "x", sbx_sandbox_id: "noconfig", config_hash: "0",
+  });
+  const code = await rm(["noconfig"]);
+  expect(code).toBe(0);
+  expect(await getEntry("noconfig")).toBeUndefined();
 });

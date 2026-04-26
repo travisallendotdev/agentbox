@@ -4,10 +4,11 @@ import { runSbx } from "../sbx/client.ts";
 import { runLifecyclePhase } from "../lifecycle/hooks.ts";
 import { parseConfigFile } from "../config/parse.ts";
 import { resolveRepos } from "../config/resolve-repos.ts";
-import { removeHostWorktrees } from "./up/worktrees.ts";
+import { assertWorktreesClean, removeHostWorktrees } from "./up/worktrees.ts";
 import { homePaths } from "../paths.ts";
 import { createLogger } from "../log/logger.ts";
 import { AgentboxError, formatError } from "../errors.ts";
+import type { ResolvedRepo } from "../config/resolve-repos.ts";
 
 interface RmFlags { name: string; force: boolean; pruneBranches: boolean }
 
@@ -40,29 +41,49 @@ export async function rm(args: string[]): Promise<number> {
   }
   const log = await createLogger(flags.name);
   try {
-    // Best-effort on_stop + cleanup. Each step is independently guarded so a failure
-    // in one doesn't block the rest of teardown.
+    // --- Phase 1: parse config and resolve repos (narrow try/catch for config errors only) ---
+    let repos: ResolvedRepo[] | null = null;
+    let cfg: Awaited<ReturnType<typeof parseConfigFile>> | null = null;
     try {
-      const cfg = await parseConfigFile(entry.config_path);
+      cfg = await parseConfigFile(entry.config_path);
+      repos = await resolveRepos(cfg.repos ?? [], flags.name);
+    } catch (cfgErr) {
+      // Config couldn't be parsed (file deleted, schema change, etc.) — proceed with bare cleanup
+      log.warn(`config unreadable; performing bare cleanup: ${formatError(cfgErr)}`);
+    }
+
+    // --- Phase 2: pre-flight dirty-worktree check (before any destructive operation) ---
+    // Only run when we have repos and force is not set.
+    if (!flags.force && repos !== null && repos.length > 0) {
+      await assertWorktreesClean(flags.name, repos);
+      // assertWorktreesClean throws AgentboxError on dirty worktrees.
+      // That throw propagates to the outer catch → returns 1, NO state changes made yet.
+    }
+
+    // --- Phase 3: destructive teardown (we are now committed to full removal) ---
+
+    // on_stop lifecycle hook
+    if (cfg !== null) {
       try {
         await runLifecyclePhase("on_stop", flags.name, cfg.lifecycle?.on_stop, log);
       } catch (e) { log.warn(`on_stop: ${formatError(e)}`); }
+    }
 
-      const repos = await resolveRepos(cfg.repos ?? [], flags.name);
+    // Destroy the VM
+    try {
+      const r = await runSbx(["rm", flags.name]);
+      if (r.exitCode !== 0) log.warn(`sbx rm: ${r.stderr.trim()}`);
+    } catch (e) { log.warn(`sbx rm: ${formatError(e)}`); }
 
+    // Remove host worktrees (always force at this point — we already pre-flighted)
+    if (repos !== null) {
       try {
-        const r = await runSbx(["rm", flags.name]);
-        if (r.exitCode !== 0) log.warn(`sbx rm: ${r.stderr.trim()}`);
-      } catch (e) { log.warn(`sbx rm: ${formatError(e)}`); }
-
-      try {
-        await removeHostWorktrees(flags.name, repos, { force: flags.force });
+        await removeHostWorktrees(flags.name, repos, { force: true });
       } catch (e) {
-        // Surface this — dirty worktree without --force is a real problem
-        if (!flags.force) throw e;
         log.warn(`worktree cleanup: ${formatError(e)}`);
       }
 
+      // Prune branches if requested
       if (flags.pruneBranches) {
         for (const r of repos) {
           if (r.source !== "local") continue;
@@ -71,17 +92,14 @@ export async function rm(args: string[]): Promise<number> {
             stdout: "pipe",
             stderr: "pipe",
           });
-          await proc.exited;
+          const code = await proc.exited;
+          const stderr = await new Response(proc.stderr).text();
+          if (code !== 0) log.warn(`branch -D ${r.branch} on ${r.path}: ${stderr.trim()}`);
         }
       }
-    } catch (cfgErr) {
-      // Config couldn't be parsed (file deleted, etc.) — fall back to bare cleanup
-      log.warn(`config unreadable; performing bare cleanup: ${formatError(cfgErr)}`);
-      try {
-        const r = await runSbx(["rm", flags.name]);
-        if (r.exitCode !== 0) log.warn(`sbx rm: ${r.stderr.trim()}`);
-      } catch (e) { log.warn(`sbx rm: ${formatError(e)}`); }
     }
+
+    // Remove sandbox dir and registry entry
     const sb = homePaths().sandboxDir(flags.name);
     if (existsSync(sb)) rmSync(sb, { recursive: true, force: true });
     await removeEntry(flags.name);
