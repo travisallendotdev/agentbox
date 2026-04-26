@@ -15,9 +15,24 @@ export async function applyNetworkPolicy(plan: UpPlan): Promise<void> {
   }
 }
 
+/**
+ * Expand a bare template variant (e.g. "claude-code-docker") to the full OCI
+ * reference `docker.io/docker/sandbox-templates:<variant>`. sbx does not
+ * auto-resolve docker.io for `--template`, and bare names get misread as
+ * `library/<name>` — which 404s in the Docker Hub root namespace.
+ *
+ * Values that already look like an OCI reference (contain "/" or ":") are
+ * passed through unchanged so custom templates still work.
+ */
+export function resolveTemplateRef(value: string): string {
+  if (value.includes("/") || value.includes(":")) return value;
+  return `docker.io/docker/sandbox-templates:${value}`;
+}
+
 export async function createSandbox(plan: UpPlan): Promise<string> {
   const parent = homePaths().repoParentDir(plan.name);
-  const args = ["create", "--name", plan.name, "--template", plan.baseTemplate, "claude", parent];
+  const template = resolveTemplateRef(plan.baseTemplate);
+  const args = ["create", "--name", plan.name, "--template", template, "claude", parent];
   const r = await runSbx(args);
   if (r.exitCode !== 0) {
     throw new AgentboxError(`sbx create failed: ${r.stderr.trim()}`, {
