@@ -1,0 +1,24 @@
+{
+  "name": "agentbox",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "module": "src/cli.ts",
+  "bin": { "agentbox": "src/cli.ts" },
+  "scripts": {
+    "test": "bun test",
+    "build": "bun build --compile --target=bun-darwin-arm64 ./src/cli.ts --outfile dist/agentbox",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "yaml": "^2.5.0",
+    "zod": "^3.23.0",
+    "proper-lockfile": "^4.1.2",
+    "tar": "^7.4.0"
+  },
+  "devDependencies": {
+    "@types/proper-lockfile": "^4.1.4",
+    "@types/tar": "^6.1.13",
+    "typescript": "^5.5.0"
+  }
+}
