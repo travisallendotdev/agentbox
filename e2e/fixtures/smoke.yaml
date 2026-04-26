@@ -1,0 +1,6 @@
+mode: ephemeral
+name: agentbox-e2e-smoke
+secrets: [anthropic]
+skills:
+  - ./e2e/fixtures/skill-marker
+prompt: "echo 'hello from the agent'"
