@@ -34,10 +34,41 @@ export async function rm(args: string[]): Promise<number> {
 
   const entry = await getEntry(flags.name);
   if (!entry) {
-    process.stderr.write(formatError(new AgentboxError(`No sandbox '${flags.name}' in registry`, {
-      fix: "Run `agentbox ls` to see registered sandboxes",
-    })) + "\n");
-    return 1;
+    // Check for orphan state (sandbox dir or sbx VM) even though registry has no entry.
+    const sandboxDir = homePaths().sandboxDir(flags.name);
+    const hasDir = existsSync(sandboxDir);
+    let hasSbx = false;
+    try {
+      const r = await runSbx(["ls", "--json"]);
+      if (r.exitCode === 0 && r.stdout.trim()) {
+        const live = JSON.parse(r.stdout) as { name: string }[];
+        hasSbx = live.some(s => s.name === flags.name);
+      }
+    } catch { /* ignore */ }
+
+    if (!hasDir && !hasSbx) {
+      process.stderr.write(formatError(new AgentboxError(`No sandbox '${flags.name}' in registry, on disk, or in sbx`, {
+        fix: "Run `agentbox ls` to see registered sandboxes",
+      })) + "\n");
+      return 1;
+    }
+
+    // Bare cleanup path: best-effort sbx rm + rm sandbox dir.
+    // Cannot prune source-repo worktrees (config_path is gone).
+    const log = await createLogger(flags.name);
+    try {
+      if (hasSbx) {
+        try {
+          const r = await runSbx(["rm", flags.name]);
+          if (r.exitCode !== 0) log.warn(`sbx rm: ${r.stderr.trim()}`);
+        } catch (e) { log.warn(`sbx rm: ${formatError(e)}`); }
+      }
+      if (hasDir) rmSync(sandboxDir, { recursive: true, force: true });
+      process.stdout.write(`Cleaned orphan state for '${flags.name}' (no registry entry; source-repo worktrees not pruned — run \`git worktree prune\` in each source repo if needed)\n`);
+      return 0;
+    } finally {
+      await log.close();
+    }
   }
   const log = await createLogger(flags.name);
   try {

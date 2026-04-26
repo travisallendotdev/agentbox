@@ -9,6 +9,7 @@ import { buildUpPlan, type UpPlan } from "./plan.ts";
 import { applyNetworkPolicy, createSandbox } from "./create.ts";
 import { stageInjection } from "./stage.ts";
 import { createHostWorktrees, removeHostWorktrees } from "./worktrees.ts";
+import { pruneWorktrees } from "../../git/worktree.ts";
 import { cloneGitRepos } from "./clone.ts";
 import { runLifecyclePhase } from "../../lifecycle/hooks.ts";
 import type { UpFlags } from "./flags.ts";
@@ -71,6 +72,24 @@ export async function runUp(flags: UpFlags): Promise<number> {
   let pastCreate = false;
   let pastRegistry = false;
   let stageDir: string | undefined;
+
+  // If --replace is in effect and state exists, tear it down before proceeding.
+  if (plan.replace) {
+    const hasState = existsSync(sandboxDirPath) || (existingEntry !== undefined);
+    if (hasState) {
+      log.info(`replace: tearing down existing state for ${plan.name}`);
+      try { await runSbx(["rm", plan.name]); } catch { /* not all configs registered with sbx */ }
+      if (existingEntry) {
+        try { await removeEntry(plan.name); } catch { /* ignore */ }
+      }
+      if (existsSync(sandboxDirPath)) rmSync(sandboxDirPath, { recursive: true, force: true });
+      // Prune stale worktree metadata in the source repos from the new plan (best-effort).
+      for (const r of plan.repos) {
+        if (r.source !== "local") continue;
+        try { await pruneWorktrees(r.path); } catch { /* ignore */ }
+      }
+    }
+  }
 
   try {
     log.info(`up: name=${plan.name} mode=${plan.mode}`);

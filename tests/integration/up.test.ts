@@ -124,6 +124,25 @@ test("--replace overwrites an existing sandbox dir", async () => {
   expect(code).toBe(0);
 });
 
+test("--replace tears down existing state before recreating", async () => {
+  const repo = makeRepo();
+  // Pre-create a leftover sandbox dir
+  const sandboxDir = join(workdir, "sandboxes/foo");
+  await Bun.$`mkdir -p ${sandboxDir}/repos`.quiet();
+
+  process.env.AGENTBOX_SBX_BIN = fakeSbxAlwaysOK(join(workdir, "sbx.log"));
+  const cfg = join(workdir, "x.yaml");
+  writeFileSync(
+    cfg,
+    `mode: durable\nname: foo\nrepos:\n  - source: local\n    path: ${repo}\nsecrets: [anthropic]\n`,
+  );
+  const code = await runUp({ configPath: cfg, replace: true, keep: false, keepOnError: false, verbose: false });
+  expect(code).toBe(0);
+  // The sandbox should now exist with the new state
+  const repoBaseName = repo.split("/").pop();
+  expect(existsSync(join(workdir, "sandboxes/foo/repos/" + repoBaseName))).toBe(true);
+});
+
 test("rollback on injection failure: registry not written, parent dir cleaned", async () => {
   // sbx succeeds for everything except the tar inject step
   const p = join(workdir, "fake-sbx.sh");

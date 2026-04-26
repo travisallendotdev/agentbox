@@ -103,3 +103,22 @@ test("rm with unreadable config still completes via fallback", async () => {
   expect(code).toBe(0);
   expect(await getEntry("noconfig")).toBeUndefined();
 });
+
+test("rm cleans up orphan sandbox dir even without registry entry", async () => {
+  const sandboxDir = join(workdir, "sandboxes/orphan/repos");
+  await Bun.$`mkdir -p ${sandboxDir}`.quiet();
+  // No registry entry created
+  // fakeSbx is already set in beforeEach to exit 0 with no output (hasSbx will be false)
+  const code = await rm(["orphan", "--force"]);
+  expect(code).toBe(0);
+  expect(existsSync(join(workdir, "sandboxes/orphan"))).toBe(false);
+});
+
+test("rm errors only when there's truly nothing to clean", async () => {
+  // Override fakeSbx to return empty ls --json output
+  const p = join(workdir, "fake-sbx.sh");
+  writeFileSync(p, `#!/bin/sh\ncase "$1 $2" in "ls --json") echo "[]" ;; *) exit 0 ;; esac\n`, { mode: 0o755 });
+  process.env.AGENTBOX_SBX_BIN = p;
+  const code = await rm(["nope"]);
+  expect(code).toBe(1);
+});
