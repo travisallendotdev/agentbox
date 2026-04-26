@@ -16,12 +16,25 @@ export async function injectFiles(sandbox: string, stagingDir: string, destInsid
     stderr: "pipe",
   });
 
+  // Buffer the entire tar stream, then write+end in one shot. The payload is
+  // small (skills + a few config files), and a single awaited write+end avoids
+  // a Bun FileSink quirk where chunked writes followed by a non-awaited end()
+  // can leave the subprocess stdin open — which causes the in-sandbox `tar` to
+  // block forever waiting for EOF.
   const tarStream = tarCreate({ cwd: stagingDir, gzip: false }, ["."]);
-  const writer = proc.stdin;
+  const chunks: Uint8Array[] = [];
   for await (const chunk of tarStream as AsyncIterable<Uint8Array>) {
-    writer.write(chunk);
+    chunks.push(chunk);
   }
-  writer.end();
+  const totalLen = chunks.reduce((n, c) => n + c.length, 0);
+  const buf = new Uint8Array(totalLen);
+  let offset = 0;
+  for (const c of chunks) {
+    buf.set(c, offset);
+    offset += c.length;
+  }
+  proc.stdin.write(buf);
+  await proc.stdin.end();
 
   const [stdout, stderr, code] = await Promise.all([
     new Response(proc.stdout).text(),
