@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+export const AuthMode = z.enum(["api_key", "session"]);
+export type AuthMode = z.infer<typeof AuthMode>;
+
 const HookEntry = z.object({
   matcher: z.string(),
   command: z.string(),
@@ -41,6 +44,7 @@ const Network = z.object({
 export const AgentboxConfigSchema = z.object({
   name: z.string().optional(),
   mode: z.enum(["durable", "ephemeral"]),
+  auth: AuthMode.optional(),
   base_template: z.string().optional(),
   repos: z.array(Repo).optional(),
   skills: z.array(z.string()).optional(),

@@ -2,6 +2,7 @@ import { runSbx } from "../sbx/client.ts";
 import { listEntries } from "../registry/registry.ts";
 import { AgentboxError, formatError } from "../errors.ts";
 import { homePaths } from "../paths.ts";
+import { hasHostClaudeCredentials } from "../auth/host-credentials.ts";
 
 export async function doctor(_args: string[]): Promise<number> {
   let problems = 0;
@@ -39,6 +40,14 @@ export async function doctor(_args: string[]): Promise<number> {
   } catch (e) {
     process.stderr.write(formatError(e) + "\n");
     problems++;
+  }
+
+  // Session credentials (Keychain on macOS, file on Linux)
+  const hasSession = await hasHostClaudeCredentials();
+  if (hasSession) {
+    process.stdout.write("✓ Claude session credentials available (auth: session ready)\n");
+  } else {
+    process.stdout.write("ℹ no Claude session credentials found (run `claude` to authenticate if you want auth: session)\n");
   }
 
   // Registry summary + drift detection

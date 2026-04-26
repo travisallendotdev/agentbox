@@ -5,6 +5,7 @@ import { resolveAllSkills } from "../../config/resolve-skills.ts";
 import { resolvePrompt } from "../../config/resolve-prompt.ts";
 import { runSbx } from "../../sbx/client.ts";
 import { AgentboxError } from "../../errors.ts";
+import { readHostClaudeCredentials } from "../../auth/host-credentials.ts";
 import type { AgentboxConfig } from "../../config/schema.ts";
 import type { UpFlags } from "./flags.ts";
 
@@ -23,6 +24,8 @@ export interface UpPlan {
   keepOnError: boolean;
   replace: boolean;
   verbose: boolean;
+  authMode: "api_key" | "session";
+  claudeCredentials?: string;  // populated when authMode === "session"
 }
 
 function deriveName(flags: UpFlags, cfg: AgentboxConfig): string {
@@ -48,23 +51,34 @@ export async function buildUpPlan(flags: UpFlags): Promise<UpPlan> {
   let name = deriveName(flags, cfg);
   if (cfg.mode === "ephemeral") name = `${name}-${ephemeralSuffix()}`;
 
-  // Validate secrets
+  const authMode: "api_key" | "session" = cfg.auth ?? "api_key";
+
+  // Validate secrets — skip "anthropic" when using session auth
   if (cfg.secrets && cfg.secrets.length > 0) {
-    const r = await runSbx(["secret", "ls", "-g"]);
-    if (r.exitCode !== 0) {
-      throw new AgentboxError(`sbx secret ls failed: ${r.stderr.trim()}`, {
-        fix: "Verify sbx is installed and working: agentbox doctor",
-      });
-    }
-    const present = new Set(r.stdout.split("\n").map((s) => s.trim()).filter(Boolean));
-    for (const s of cfg.secrets) {
-      if (!present.has(s)) {
-        throw new AgentboxError(`secret not configured: ${s}`, {
-          fix: `sbx secret set -g ${s}`,
-          context: { required_by: `secrets[${cfg.secrets.indexOf(s)}]` },
+    const requiredSecrets = cfg.secrets.filter((s) => !(s === "anthropic" && authMode === "session"));
+    if (requiredSecrets.length > 0) {
+      const r = await runSbx(["secret", "ls", "-g"]);
+      if (r.exitCode !== 0) {
+        throw new AgentboxError(`sbx secret ls failed: ${r.stderr.trim()}`, {
+          fix: "Verify sbx is installed and working: agentbox doctor",
         });
       }
+      const present = new Set(r.stdout.split("\n").map((s) => s.trim()).filter(Boolean));
+      for (const s of requiredSecrets) {
+        if (!present.has(s)) {
+          throw new AgentboxError(`secret not configured: ${s}`, {
+            fix: `sbx secret set -g ${s}`,
+            context: { required_by: `secrets[${cfg.secrets.indexOf(s)}]` },
+          });
+        }
+      }
     }
+  }
+
+  // Load session credentials when auth mode requires it
+  let claudeCredentials: string | undefined;
+  if (authMode === "session") {
+    claudeCredentials = await readHostClaudeCredentials();
   }
 
   const repos = await resolveRepos(cfg.repos ?? [], name);
@@ -85,5 +99,7 @@ export async function buildUpPlan(flags: UpFlags): Promise<UpPlan> {
     keepOnError: flags.keepOnError,
     replace: flags.replace,
     verbose: flags.verbose,
+    authMode,
+    claudeCredentials,
   };
 }

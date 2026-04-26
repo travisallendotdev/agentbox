@@ -1,4 +1,4 @@
-import { test, expect, beforeEach } from "bun:test";
+import { test, expect, beforeEach, afterEach } from "bun:test";
 import { buildUpPlan } from "../../../../src/commands/up/plan.ts";
 import { mkdtempSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 
 let workdir: string;
+const origCredsOverride = process.env.AGENTBOX_CLAUDE_CREDENTIALS_FILE;
 beforeEach(() => {
   workdir = mkdtempSync(join(tmpdir(), "agbx-plan-"));
   process.env.AGENTBOX_HOME = workdir;
@@ -28,6 +29,10 @@ esac
     { mode: 0o755 },
   );
   process.env.AGENTBOX_SBX_BIN = sbx;
+});
+afterEach(() => {
+  if (origCredsOverride === undefined) delete process.env.AGENTBOX_CLAUDE_CREDENTIALS_FILE;
+  else process.env.AGENTBOX_CLAUDE_CREDENTIALS_FILE = origCredsOverride;
 });
 
 function makeRepo(name: string): string {
@@ -76,4 +81,33 @@ test("plan resolves repos and skills", async () => {
   expect(r0.source).toBe("local");
   expect(r0.name).toBe("repo-a");
   expect(plan.skillSources["coding-standards"]).toContain("coding-standards");
+});
+
+test("auth: session skips anthropic secret validation and loads credentials", async () => {
+  // Set up a fake credentials file
+  const credsPath = join(workdir, "creds.json");
+  writeFileSync(credsPath, '{"oauth_token":"fake"}');
+  process.env.AGENTBOX_CLAUDE_CREDENTIALS_FILE = credsPath;
+
+  // Make the fake sbx return NO secrets — anthropic missing — but auth: session means we don't check
+  const sbx = join(workdir, "fake-sbx-empty.sh");
+  writeFileSync(sbx, `#!/bin/sh\ncase "$1" in secret) printf '' ;; *) exit 0 ;; esac\n`, { mode: 0o755 });
+  process.env.AGENTBOX_SBX_BIN = sbx;
+
+  const cfg = join(workdir, "session.yaml");
+  writeFileSync(cfg, "mode: durable\nname: sess\nauth: session\nsecrets: [anthropic]\n");
+  const plan = await buildUpPlan({ configPath: cfg, replace: false, keep: false, keepOnError: false, verbose: false });
+  expect(plan.authMode).toBe("session");
+  expect(plan.claudeCredentials).toContain("oauth_token");
+});
+
+test("auth: api_key (default) still validates anthropic secret", async () => {
+  // empty fake → anthropic missing
+  const sbx = join(workdir, "fake-sbx-empty.sh");
+  writeFileSync(sbx, `#!/bin/sh\ncase "$1" in secret) printf '' ;; *) exit 0 ;; esac\n`, { mode: 0o755 });
+  process.env.AGENTBOX_SBX_BIN = sbx;
+  const cfg = join(workdir, "key.yaml");
+  writeFileSync(cfg, "mode: durable\nname: k\nsecrets: [anthropic]\n");
+  await expect(buildUpPlan({ configPath: cfg, replace: false, keep: false, keepOnError: false, verbose: false }))
+    .rejects.toThrow(/anthropic/);
 });

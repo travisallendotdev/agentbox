@@ -7,6 +7,7 @@ export interface StageInputs {
   skillSources: Record<string, string>;
   hooks: HookConfig | undefined;
   env: Record<string, string> | undefined;
+  credentials?: string;
 }
 
 export interface Staging {
@@ -30,6 +31,10 @@ export async function stageInjection(inputs: StageInputs): Promise<Staging> {
   mkdirSync(claudeDir, { recursive: true });
   const settings = inputs.hooks ? { hooks: inputs.hooks } : {};
   writeFileSync(join(claudeDir, "settings.json"), JSON.stringify(settings, null, 2) + "\n");
+  // credentials (session auth)
+  if (inputs.credentials) {
+    writeFileSync(join(claudeDir, ".credentials.json"), inputs.credentials);
+  }
   // /etc/sandbox-persistent.sh
   const etcDir = join(dir, "etc");
   mkdirSync(etcDir, { recursive: true });

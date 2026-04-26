@@ -56,3 +56,18 @@ test("rejects unknown top-level field", () => {
   const r = AgentboxConfigSchema.safeParse({ mode: "ephemeral", garbage: 1 });
   expect(r.success).toBe(false);
 });
+
+test("accepts auth: session", () => {
+  const r = AgentboxConfigSchema.safeParse({ mode: "ephemeral", auth: "session" });
+  expect(r.success).toBe(true);
+});
+
+test("accepts auth: api_key", () => {
+  const r = AgentboxConfigSchema.safeParse({ mode: "ephemeral", auth: "api_key" });
+  expect(r.success).toBe(true);
+});
+
+test("rejects invalid auth mode", () => {
+  const r = AgentboxConfigSchema.safeParse({ mode: "ephemeral", auth: "weird" });
+  expect(r.success).toBe(false);
+});

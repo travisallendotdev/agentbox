@@ -11,6 +11,12 @@ name: example
 # ephemeral: torn down automatically when the agent exits (use --keep to preserve).
 mode: durable
 
+# Authentication mode for the Anthropic API.
+# api_key (default): use \`sbx secret set -g anthropic\` (your API key); credentials never enter the VM.
+# session: inject your host's Claude Code OAuth credentials into the sandbox. Required for Pro/Max subscribers
+#          who don't use API keys. Trade-off: tokens are inside the VM, exposed if the agent is compromised.
+auth: api_key
+
 # Optional. Defaults to "claude-code-docker". Other built-ins: "claude-code", "claude-code-minimal".
 # You can also point at a custom OCI image: "docker.io/myorg/my-template:v1".
 base_template: claude-code-docker

@@ -59,6 +59,7 @@ export async function runUp(flags: UpFlags): Promise<number> {
       skillSources: plan.skillSources,
       hooks: plan.config.hooks,
       env: plan.config.env,
+      credentials: plan.claudeCredentials,
     }));
     stageDir = stage.dir;
     await log.phase("inject", () => injectFiles(plan.name, stage.dir, "/"));

@@ -50,3 +50,23 @@ test("empty inputs produce empty (but valid) settings.json and env file", async 
   const env = readFileSync(join(stage.dir, "etc/sandbox-persistent.sh"), "utf8");
   expect(env).toBe("\n"); // empty entries → just a newline
 });
+
+test("writes credentials.json when credentials provided", async () => {
+  const stage = await stageInjection({
+    skillSources: {},
+    hooks: undefined,
+    env: undefined,
+    credentials: '{"oauth_token":"fake"}',
+  });
+  const creds = readFileSync(join(stage.dir, "home/agent/.claude/.credentials.json"), "utf8");
+  expect(creds).toBe('{"oauth_token":"fake"}');
+});
+
+test("does not write credentials.json when credentials omitted", async () => {
+  const stage = await stageInjection({
+    skillSources: {},
+    hooks: undefined,
+    env: undefined,
+  });
+  expect(existsSync(join(stage.dir, "home/agent/.claude/.credentials.json"))).toBe(false);
+});
