@@ -1,0 +1,9 @@
+name: project-x
+mode: durable
+env:
+  RUST_LOG: ${TEST_LOG_LEVEL}
+  STATIC: hi
+repos:
+  - source: local
+    path: ${HOME}/dev/project-a
+prompt: ${TEST_PROMPT}
