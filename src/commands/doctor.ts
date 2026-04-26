@@ -1,6 +1,7 @@
 import { runSbx } from "../sbx/client.ts";
 import { listEntries } from "../registry/registry.ts";
 import { AgentboxError, formatError } from "../errors.ts";
+import { homePaths } from "../paths.ts";
 
 export async function doctor(_args: string[]): Promise<number> {
   let problems = 0;
@@ -41,8 +42,17 @@ export async function doctor(_args: string[]): Promise<number> {
   }
 
   // Registry summary + drift detection
-  const entries = await listEntries();
-  process.stdout.write(`✓ registry: ${entries.length} sandbox(es) tracked\n`);
+  let entries: Awaited<ReturnType<typeof listEntries>> = [];
+  try {
+    entries = await listEntries();
+    process.stdout.write(`✓ registry: ${entries.length} sandbox(es) tracked\n`);
+  } catch (e) {
+    process.stderr.write(formatError(new AgentboxError("registry file is unreadable or corrupt", {
+      fix: `Inspect ${homePaths().registry} for invalid JSON`,
+      cause: e,
+    })) + "\n");
+    problems++;
+  }
 
   if (entries.length > 0) {
     const r = await runSbx(["ls", "--json"]);
