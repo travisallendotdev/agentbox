@@ -1,3 +1,5 @@
+import { AgentboxError } from "../../errors.ts";
+
 export interface UpFlags {
   configPath: string;
   name?: string;
@@ -17,7 +19,17 @@ export function parseUpFlags(args: string[]): UpFlags {
   for (let i = 0; i < args.length; i++) {
     const a = args[i]!;
     switch (a) {
-      case "--name": name = args[++i]; break;
+      case "--name": {
+        const val = args[i + 1];
+        if (val === undefined || val.startsWith("--")) {
+          throw new AgentboxError("--name requires a value", {
+            fix: "agentbox up <path>.yaml --name <name>",
+          });
+        }
+        name = val;
+        i++;
+        break;
+      }
       case "--replace": replace = true; break;
       case "--keep": keep = true; break;
       case "--keep-on-error": keepOnError = true; break;
@@ -25,11 +37,11 @@ export function parseUpFlags(args: string[]): UpFlags {
       case "-v":
         verbose = true; break;
       default:
-        if (a.startsWith("--")) throw new Error(`unknown flag: ${a}`);
-        if (configPath !== undefined) throw new Error(`unexpected positional argument: ${a}`);
+        if (a.startsWith("--")) throw new AgentboxError(`unknown flag: ${a}`, { fix: "Run `agentbox --help` for usage" });
+        if (configPath !== undefined) throw new AgentboxError(`unexpected positional argument: ${a}`, { fix: "Only one positional config-path argument is accepted" });
         configPath = a;
     }
   }
-  if (configPath === undefined) throw new Error("config path is required");
+  if (configPath === undefined) throw new AgentboxError("config path is required", { fix: "agentbox up <path>.yaml" });
   return { configPath, name, replace, keep, keepOnError, verbose };
 }

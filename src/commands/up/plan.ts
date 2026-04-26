@@ -16,6 +16,7 @@ export interface UpPlan {
   configHash: string;
   config: AgentboxConfig;
   repos: ResolvedRepo[];
+  /** Maps the raw skill ref (as written in config — e.g., "coding-standards", "superpowers:debug", or "/abs/path") to its resolved absolute path on the host. */
   skillSources: Record<string, string>;
   prompt?: string;
   keep: boolean;
@@ -50,7 +51,11 @@ export async function buildUpPlan(flags: UpFlags): Promise<UpPlan> {
   // Validate secrets
   if (cfg.secrets && cfg.secrets.length > 0) {
     const r = await runSbx(["secret", "ls", "-g"]);
-    if (r.exitCode !== 0) throw new Error(`sbx secret ls failed: ${r.stderr}`);
+    if (r.exitCode !== 0) {
+      throw new AgentboxError(`sbx secret ls failed: ${r.stderr.trim()}`, {
+        fix: "Verify sbx is installed and working: agentbox doctor",
+      });
+    }
     const present = new Set(r.stdout.split("\n").map((s) => s.trim()).filter(Boolean));
     for (const s of cfg.secrets) {
       if (!present.has(s)) {
