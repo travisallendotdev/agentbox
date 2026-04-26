@@ -1,6 +1,6 @@
 import { mkdirSync, existsSync, rmSync } from "node:fs";
 import { homePaths } from "../../paths.ts";
-import { addEntry } from "../../registry/registry.ts";
+import { addEntry, removeEntry } from "../../registry/registry.ts";
 import { runSbx, runSbxInherit } from "../../sbx/client.ts";
 import { injectFiles } from "../../sbx/inject.ts";
 import { createLogger, type Logger } from "../../log/logger.ts";
@@ -13,12 +13,15 @@ import { cloneGitRepos } from "./clone.ts";
 import { runLifecyclePhase } from "../../lifecycle/hooks.ts";
 import type { UpFlags } from "./flags.ts";
 
-async function rollback(plan: UpPlan, log: Logger): Promise<void> {
+async function rollback(plan: UpPlan, log: Logger, opts: { pastRegistry: boolean }): Promise<void> {
   log.warn("rolling back partial sandbox");
   try { await runSbx(["rm", plan.name]); } catch (e) { log.warn(`sbx rm: ${(e as Error).message}`); }
   try { await removeHostWorktrees(plan.name, plan.repos, { force: true }); } catch (e) { log.warn(`worktree cleanup: ${(e as Error).message}`); }
   const sb = homePaths().sandboxDir(plan.name);
   if (existsSync(sb)) rmSync(sb, { recursive: true, force: true });
+  if (opts.pastRegistry) {
+    try { await removeEntry(plan.name); } catch (e) { log.warn(`registry cleanup: ${(e as Error).message}`); }
+  }
 }
 
 function cleanupStaging(stageDir: string | undefined): void {
@@ -38,6 +41,7 @@ export async function runUp(flags: UpFlags): Promise<number> {
 
   const log = await createLogger(plan.name, { verbose: plan.verbose });
   let pastCreate = false;
+  let pastRegistry = false;
   let stageDir: string | undefined;
 
   try {
@@ -74,12 +78,16 @@ export async function runUp(flags: UpFlags): Promise<number> {
       sbx_sandbox_id: plan.name,
       config_hash: plan.configHash,
     }, { replace: plan.replace });
+    pastRegistry = true;
 
     log.info("up: bootstrap complete; launching agent");
     await log.close();
     cleanupStaging(stageDir);
 
     // Launch agent — this blocks until the agent exits.
+    // `sbx run <name>` attaches to the existing named sandbox (created via `sbx create` above)
+    // and blocks while the Claude agent runs. stdio is inherited so the user sees the agent TUI directly.
+    // Per docker/docs `content/manuals/ai/sandboxes/usage.md`: "$ sbx run my-sandbox" attaches by name.
     const promptArgs = plan.prompt ? ["--", plan.prompt] : [];
     const agentExit = await runSbxInherit(["run", plan.name, ...promptArgs]);
 
@@ -95,13 +103,12 @@ export async function runUp(flags: UpFlags): Promise<number> {
     if (plan.mode === "ephemeral" && !plan.keep) {
       await runSbx(["rm", plan.name]);
       await removeHostWorktrees(plan.name, plan.repos, { force: true });
-      const { removeEntry } = await import("../../registry/registry.ts");
       await removeEntry(plan.name);
     }
     return agentExit;
   } catch (err) {
     log.error(formatError(err));
-    if (pastCreate && !plan.keepOnError) await rollback(plan, log);
+    if (pastCreate && !plan.keepOnError) await rollback(plan, log, { pastRegistry });
     await log.close();
     cleanupStaging(stageDir);
     process.stderr.write(formatError(err) + "\n");

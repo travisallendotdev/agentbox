@@ -22,13 +22,15 @@ function fakeSbxAlwaysOK(logFile: string): string {
   writeFileSync(
     p,
     `#!/bin/sh
-# Log every call for assertion
 echo "$@" >> ${logFile}
-case "$1 $2" in
-  "secret ls") echo anthropic ;;
-  "exec ${"$3"} tar")
-    # Drain the tar stream so the parent process can finish
-    cat > /dev/null
+case "$1" in
+  secret) echo anthropic ;;
+  exec)
+    # Real call: sbx exec <name> <cmd...>
+    # If $3 is "tar", drain the tar stream from stdin so injectFiles doesn't block.
+    case "$3" in
+      tar) cat > /dev/null ;;
+    esac
     ;;
 esac
 exit 0
