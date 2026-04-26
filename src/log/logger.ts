@@ -36,9 +36,22 @@ export async function createLogger(sandboxName: string, opts: LoggerOptions = {}
     warn: (m) => write("WARN", m),
     error: (m) => write("ERR ", m),
     async phase(name, fn) {
+      const start = Date.now();
+      phasePrefix = "";
+      write("INFO", `phase: ${name} starting`);
       phasePrefix = `[${name}] `;
-      try { return await fn(); }
-      finally { phasePrefix = ""; }
+      try {
+        const result = await fn();
+        phasePrefix = "";
+        write("INFO", `phase: ${name} ok (${Date.now() - start}ms)`);
+        return result;
+      } catch (err) {
+        phasePrefix = "";
+        write("ERR ", `phase: ${name} failed (${Date.now() - start}ms): ${(err as Error).message}`);
+        throw err;
+      } finally {
+        phasePrefix = "";
+      }
     },
     async close() {
       await new Promise<void>((res) => stream.end(res));

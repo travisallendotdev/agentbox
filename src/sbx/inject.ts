@@ -7,20 +7,14 @@ function sbxBin(): string {
 /**
  * Pack `stagingDir` as a tar stream and pipe it into
  *   sbx exec <sandbox> tar -xf - -C <destInsideSandbox>
+ *
+ * Buffer the tar payload and pass it as `stdin: Uint8Array`. Awaiting
+ * `proc.stdin.end()` on a FileSink is not enough — it does not always
+ * propagate EOF through `sbx exec` to the in-VM `tar -xf -`, which then
+ * blocks indefinitely. Passing a typed array makes Bun write the bytes and
+ * close stdin atomically, which delivers EOF reliably.
  */
 export async function injectFiles(sandbox: string, stagingDir: string, destInsideSandbox: string): Promise<void> {
-  const proc = Bun.spawn({
-    cmd: [sbxBin(), "exec", sandbox, "tar", "-xf", "-", "-C", destInsideSandbox],
-    stdin: "pipe",
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-
-  // Buffer the entire tar stream, then write+end in one shot. The payload is
-  // small (skills + a few config files), and a single awaited write+end avoids
-  // a Bun FileSink quirk where chunked writes followed by a non-awaited end()
-  // can leave the subprocess stdin open — which causes the in-sandbox `tar` to
-  // block forever waiting for EOF.
   const tarStream = tarCreate({ cwd: stagingDir, gzip: false }, ["."]);
   const chunks: Uint8Array[] = [];
   for await (const chunk of tarStream as AsyncIterable<Uint8Array>) {
@@ -33,8 +27,13 @@ export async function injectFiles(sandbox: string, stagingDir: string, destInsid
     buf.set(c, offset);
     offset += c.length;
   }
-  proc.stdin.write(buf);
-  await proc.stdin.end();
+
+  const proc = Bun.spawn({
+    cmd: [sbxBin(), "exec", sandbox, "tar", "-xf", "-", "-C", destInsideSandbox],
+    stdin: buf,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
 
   const [stdout, stderr, code] = await Promise.all([
     new Response(proc.stdout).text(),
