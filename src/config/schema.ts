@@ -48,6 +48,7 @@ export const AgentboxConfigSchema = z.object({
   base_template: z.string().optional(),
   repos: z.array(Repo).optional(),
   skills: z.array(z.string()).optional(),
+  plugins: z.array(z.string()).optional(),
   hooks: Hooks.optional(),
   lifecycle: Lifecycle.optional(),
   network: Network.optional(),
