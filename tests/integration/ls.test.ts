@@ -26,10 +26,12 @@ test("shows registered sandboxes with running/stopped/orphaned/unmanaged classif
   writeFileSync(cfg, "mode: durable\n");
   await addEntry({ name: "foo", config_path: cfg, mode: "durable", created_at: "x", sbx_sandbox_id: "foo", config_hash: "0" });
   await addEntry({ name: "ghost", config_path: cfg, mode: "durable", created_at: "x", sbx_sandbox_id: "ghost", config_hash: "0" });
-  process.env.AGENTBOX_SBX_BIN = fakeSbxList(JSON.stringify([
-    { name: "foo", state: "running" },
-    { name: "stranger", state: "stopped" },
-  ]));
+  process.env.AGENTBOX_SBX_BIN = fakeSbxList(JSON.stringify({
+    sandboxes: [
+      { name: "foo", status: "running" },
+      { name: "stranger", status: "stopped" },
+    ],
+  }));
   const chunks: string[] = [];
   const origWrite = process.stdout.write.bind(process.stdout);
   // @ts-ignore
@@ -50,7 +52,7 @@ test("shows registered sandboxes with running/stopped/orphaned/unmanaged classif
 });
 
 test("ls with empty registry and empty sbx prints 'No sandboxes.'", async () => {
-  process.env.AGENTBOX_SBX_BIN = fakeSbxList("[]");
+  process.env.AGENTBOX_SBX_BIN = fakeSbxList(JSON.stringify({ sandboxes: [] }));
   const chunks: string[] = [];
   const origWrite = process.stdout.write.bind(process.stdout);
   // @ts-ignore
