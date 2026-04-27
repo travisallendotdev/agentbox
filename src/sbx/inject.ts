@@ -1,4 +1,5 @@
 import { create as tarCreate } from "tar";
+import { readdirSync } from "node:fs";
 
 function sbxBin(): string {
   return process.env.AGENTBOX_SBX_BIN ?? "sbx";
@@ -20,7 +21,14 @@ const MAX_BASE64_BYTES = 96 * 1024;
  * the VM. The decode→tar pipe is local to the VM and EOFs normally.
  */
 export async function injectFiles(sandbox: string, stagingDir: string, destInsideSandbox: string): Promise<void> {
-  const tarStream = tarCreate({ cwd: stagingDir, gzip: false }, ["."]);
+  // List top-level entries explicitly instead of ["."] — including "." in the
+  // tar adds a "./" entry whose recorded mode comes from the staging dir
+  // (mkdtemp creates dirs with 0700). Extracting that with -C / as root
+  // chmods / to 0700, which breaks the container at next start (the kernel
+  // can no longer resolve binaries on PATH; sleep infinity exits 127).
+  const topLevel = readdirSync(stagingDir);
+  if (topLevel.length === 0) return;
+  const tarStream = tarCreate({ cwd: stagingDir, gzip: false }, topLevel);
   const chunks: Uint8Array[] = [];
   for await (const chunk of tarStream as AsyncIterable<Uint8Array>) {
     chunks.push(chunk);
