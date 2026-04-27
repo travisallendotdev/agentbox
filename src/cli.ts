@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import { up } from "./commands/up.ts";
-import { start } from "./commands/start.ts";
+import { start as run } from "./commands/start.ts";
 import { stop } from "./commands/stop.ts";
 import { shell } from "./commands/shell.ts";
 import { rm } from "./commands/rm.ts";
@@ -13,7 +13,7 @@ const USAGE = `agentbox — declarative Claude Code sandboxes on Docker sbx
 
 Usage:
   agentbox up <path>.yaml [--name <name>] [--replace] [--keep] [--keep-on-error] [-v|--verbose]
-  agentbox start <name>
+  agentbox run <name>
   agentbox stop <name>
   agentbox shell <name>
   agentbox rm <name> [--force] [--prune-branches]
@@ -25,7 +25,7 @@ Run agentbox <command> --help for command-specific help.
 `;
 
 const HANDLERS: Record<string, (args: string[]) => Promise<number>> = {
-  up, start, stop, shell, rm, ls, doctor, init,
+  up, run, start: run, stop, shell, rm, ls, doctor, init,
 };
 
 export async function runCli(argv: string[]): Promise<number> {

@@ -17,7 +17,7 @@ function fakeSbx(logFile: string): string {
   return p;
 }
 
-test("start runs sbx start then sbx run", async () => {
+test("run attaches to the sandbox via 'sbx run' (no separate start step)", async () => {
   const log = join(workdir, "sbx.log");
   process.env.AGENTBOX_SBX_BIN = fakeSbx(log);
   const cfg = join(workdir, "c.yaml");
@@ -33,8 +33,8 @@ test("start runs sbx start then sbx run", async () => {
   const code = await start(["foo"]);
   expect(code).toBe(0);
   const text = await Bun.file(log).text();
-  expect(text).toMatch(/start foo/);
   expect(text).toMatch(/run foo/);
+  expect(text).not.toMatch(/start foo/);
 });
 
 test("start fails with clear error if name not in registry", async () => {

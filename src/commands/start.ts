@@ -1,15 +1,17 @@
 import { getEntry } from "../registry/registry.ts";
-import { runSbx, runSbxInherit } from "../sbx/client.ts";
+import { runSbxInherit } from "../sbx/client.ts";
 import { runLifecyclePhase } from "../lifecycle/hooks.ts";
 import { createLogger } from "../log/logger.ts";
 import { parseConfigFile } from "../config/parse.ts";
 import { resolvePrompt } from "../config/resolve-prompt.ts";
 import { AgentboxError, formatError } from "../errors.ts";
 
+// `sbx run` auto-starts a stopped sandbox before attaching, so there is no
+// separate `sbx start` step (sbx has no such subcommand).
 export async function start(args: string[]): Promise<number> {
   const [name] = args;
   if (!name) {
-    process.stderr.write(formatError(new AgentboxError("usage: agentbox start <name>")) + "\n");
+    process.stderr.write(formatError(new AgentboxError("usage: agentbox run <name>")) + "\n");
     return 1;
   }
   const entry = await getEntry(name);
@@ -22,13 +24,6 @@ export async function start(args: string[]): Promise<number> {
   const log = await createLogger(name);
   try {
     const cfg = await parseConfigFile(entry.config_path);
-    const r1 = await runSbx(["start", name]);
-    if (r1.exitCode !== 0) {
-      throw new AgentboxError(`sbx start failed: ${r1.stderr.trim()}`, {
-        fix: "Run `agentbox doctor` to verify sbx is working",
-      });
-    }
-    log.info(`started ${name}`);
     await runLifecyclePhase("pre_agent", name, cfg.lifecycle?.pre_agent, log);
     const prompt = await resolvePrompt(cfg.prompt);
     const promptArgs = prompt ? ["--", prompt] : [];
