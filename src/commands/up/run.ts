@@ -107,6 +107,7 @@ export async function runUp(flags: UpFlags): Promise<number> {
     // Stage and inject
     const stage = await log.phase("stage", () => stageInjection({
       skillSources: plan.skillSources,
+      plugins: plan.plugins,
       hooks: plan.config.hooks,
       env: plan.config.env,
       credentials: plan.claudeCredentials,

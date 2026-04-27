@@ -14,6 +14,7 @@ test("stages skills, settings.json, and env file under correct subpaths", async 
 
   const stage = await stageInjection({
     skillSources: { "coding-standards": skillSrc },
+    plugins: [],
     hooks: { PostToolUse: [{ matcher: "Bash", command: "echo hi" }] },
     env: { FOO: "bar", BAZ: "qux" },
   });
@@ -32,6 +33,7 @@ test("stages skills, settings.json, and env file under correct subpaths", async 
 test("env values are single-quoted with embedded quotes escaped", async () => {
   const stage = await stageInjection({
     skillSources: {},
+    plugins: [],
     hooks: undefined,
     env: { TRICKY: "it's tricky" },
   });
@@ -42,6 +44,7 @@ test("env values are single-quoted with embedded quotes escaped", async () => {
 test("empty inputs produce empty (but valid) settings.json and env file", async () => {
   const stage = await stageInjection({
     skillSources: {},
+    plugins: [],
     hooks: undefined,
     env: undefined,
   });
@@ -54,6 +57,7 @@ test("empty inputs produce empty (but valid) settings.json and env file", async 
 test("writes credentials.json when credentials provided", async () => {
   const stage = await stageInjection({
     skillSources: {},
+    plugins: [],
     hooks: undefined,
     env: undefined,
     credentials: '{"oauth_token":"fake"}',
@@ -62,9 +66,70 @@ test("writes credentials.json when credentials provided", async () => {
   expect(creds).toBe('{"oauth_token":"fake"}');
 });
 
+test("stages plugin trees and merges enabledPlugins into settings.json", async () => {
+  const pluginSrc = join(workdir, "plugin-src");
+  mkdirSync(join(pluginSrc, "skills/foo"), { recursive: true });
+  writeFileSync(join(pluginSrc, "skills/foo/SKILL.md"), "# foo");
+  // node_modules and .git should be excluded
+  mkdirSync(join(pluginSrc, "node_modules/junk"), { recursive: true });
+  writeFileSync(join(pluginSrc, "node_modules/junk/big.bin"), "should not copy");
+  mkdirSync(join(pluginSrc, ".git"), { recursive: true });
+  writeFileSync(join(pluginSrc, ".git/HEAD"), "ref");
+
+  const stage = await stageInjection({
+    skillSources: {},
+    plugins: [
+      { marketplace: "my-mp", name: "myplug", version: "1.0.0", path: pluginSrc },
+    ],
+    hooks: undefined,
+    env: undefined,
+  });
+
+  // Plugin tree lands at the canonical cache path
+  const dst = join(stage.dir, "home/agent/.claude/plugins/cache/my-mp/myplug/1.0.0");
+  expect(existsSync(join(dst, "skills/foo/SKILL.md"))).toBe(true);
+  // Excluded
+  expect(existsSync(join(dst, "node_modules"))).toBe(false);
+  expect(existsSync(join(dst, ".git"))).toBe(false);
+  // settings.json carries enabledPlugins
+  const settings = JSON.parse(readFileSync(join(stage.dir, "home/agent/.claude/settings.json"), "utf8"));
+  expect(settings.enabledPlugins).toEqual({ "myplug@my-mp": true });
+});
+
+test("merges extraKnownMarketplaces from host settings for non-builtin marketplaces", async () => {
+  // Synthesise a host CLAUDE_HOME with an extraKnownMarketplaces entry
+  const fakeHome = mkdtempSync(join(tmpdir(), "agbx-home-"));
+  writeFileSync(join(fakeHome, "settings.json"), JSON.stringify({
+    extraKnownMarketplaces: {
+      "my-mp": { source: { source: "github", repo: "x/y" } },
+      "other": { source: { source: "github", repo: "a/b" } },
+    },
+  }));
+  const orig = process.env.CLAUDE_HOME;
+  process.env.CLAUDE_HOME = fakeHome;
+  try {
+    const pluginSrc = join(workdir, "plugin-src2");
+    mkdirSync(pluginSrc, { recursive: true });
+    const stage = await stageInjection({
+      skillSources: {},
+      plugins: [{ marketplace: "my-mp", name: "myplug", version: "1.0.0", path: pluginSrc }],
+      hooks: undefined,
+      env: undefined,
+    });
+    const settings = JSON.parse(readFileSync(join(stage.dir, "home/agent/.claude/settings.json"), "utf8"));
+    // Only the plugin's marketplace is carried through, not unrelated entries
+    expect(settings.extraKnownMarketplaces).toEqual({
+      "my-mp": { source: { source: "github", repo: "x/y" } },
+    });
+  } finally {
+    process.env.CLAUDE_HOME = orig;
+  }
+});
+
 test("does not write credentials.json when credentials omitted", async () => {
   const stage = await stageInjection({
     skillSources: {},
+    plugins: [],
     hooks: undefined,
     env: undefined,
   });

@@ -2,6 +2,7 @@ import { basename } from "node:path";
 import { parseConfigFile } from "../../config/parse.ts";
 import { resolveRepos, type ResolvedRepo } from "../../config/resolve-repos.ts";
 import { resolveAllSkills } from "../../config/resolve-skills.ts";
+import { resolveAllPlugins, type ResolvedPlugin } from "../../config/resolve-plugins.ts";
 import { resolvePrompt } from "../../config/resolve-prompt.ts";
 import { runSbx } from "../../sbx/client.ts";
 import { AgentboxError } from "../../errors.ts";
@@ -19,6 +20,7 @@ export interface UpPlan {
   repos: ResolvedRepo[];
   /** Maps the raw skill ref (as written in config — e.g., "coding-standards", "superpowers:debug", or "/abs/path") to its resolved absolute path on the host. */
   skillSources: Record<string, string>;
+  plugins: ResolvedPlugin[];
   prompt?: string;
   keep: boolean;
   keepOnError: boolean;
@@ -83,6 +85,7 @@ export async function buildUpPlan(flags: UpFlags): Promise<UpPlan> {
 
   const repos = await resolveRepos(cfg.repos ?? [], name);
   const skillSources = await resolveAllSkills(cfg.skills ?? []);
+  const plugins = await resolveAllPlugins(cfg.plugins ?? []);
   const prompt = await resolvePrompt(cfg.prompt);
 
   return {
@@ -94,6 +97,7 @@ export async function buildUpPlan(flags: UpFlags): Promise<UpPlan> {
     config: cfg,
     repos,
     skillSources,
+    plugins,
     prompt,
     keep: flags.keep,
     keepOnError: flags.keepOnError,
