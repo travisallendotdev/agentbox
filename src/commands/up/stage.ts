@@ -5,6 +5,7 @@ import { join } from "node:path";
 import type { HookConfig } from "../../config/schema.ts";
 import type { ResolvedPlugin } from "../../config/resolve-plugins.ts";
 import { readHostExtraMarketplaces } from "../../config/host-plugin-settings.ts";
+import { buildSandboxGitconfig } from "../../config/host-gitconfig.ts";
 
 export interface StageInputs {
   skillSources: Record<string, string>;
@@ -88,6 +89,11 @@ export async function stageInjection(inputs: StageInputs): Promise<Staging> {
   if (inputs.credentials) {
     writeFileSync(join(claudeDir, ".credentials.json"), inputs.credentials);
   }
+  // gitconfig — pulled from host (sans [credential]) plus `safe.directory = *`
+  // so git tolerates bind-mounted .git dirs with foreign uid.
+  const homeAgent = join(dir, "home/agent");
+  mkdirSync(homeAgent, { recursive: true });
+  writeFileSync(join(homeAgent, ".gitconfig"), buildSandboxGitconfig());
   // /etc/sandbox-persistent.sh
   const etcDir = join(dir, "etc");
   mkdirSync(etcDir, { recursive: true });

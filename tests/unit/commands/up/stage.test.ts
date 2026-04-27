@@ -126,6 +126,62 @@ test("merges extraKnownMarketplaces from host settings for non-builtin marketpla
   }
 });
 
+test("writes home/agent/.gitconfig with host config minus [credential] sections plus [safe] directory = *", async () => {
+  const fakeHome = mkdtempSync(join(tmpdir(), "agbx-home-gc-"));
+  writeFileSync(join(fakeHome, ".gitconfig"), [
+    "[user]",
+    "\tname = Travis",
+    "\temail = travis@example.com",
+    "[credential]",
+    "\thelper = osxkeychain",
+    "[credential \"https://github.com\"]",
+    "\thelper = !gh auth git-credential",
+    "[alias]",
+    "\tco = checkout",
+    "",
+  ].join("\n"));
+  const orig = process.env.HOME;
+  process.env.HOME = fakeHome;
+  try {
+    const stage = await stageInjection({
+      skillSources: {},
+      plugins: [],
+      hooks: undefined,
+      env: undefined,
+    });
+    const gc = readFileSync(join(stage.dir, "home/agent/.gitconfig"), "utf8");
+    expect(gc).toContain("[user]");
+    expect(gc).toContain("name = Travis");
+    expect(gc).toContain("[alias]");
+    expect(gc).not.toContain("credential");
+    expect(gc).not.toContain("osxkeychain");
+    expect(gc).toContain("[safe]");
+    expect(gc).toContain("directory = *");
+  } finally {
+    process.env.HOME = orig;
+  }
+});
+
+test("writes a minimal gitconfig (just [safe]) when host has none", async () => {
+  const fakeHome = mkdtempSync(join(tmpdir(), "agbx-home-nogc-"));
+  const orig = process.env.HOME;
+  process.env.HOME = fakeHome;
+  try {
+    const stage = await stageInjection({
+      skillSources: {},
+      plugins: [],
+      hooks: undefined,
+      env: undefined,
+    });
+    const gc = readFileSync(join(stage.dir, "home/agent/.gitconfig"), "utf8");
+    expect(gc).toContain("[safe]");
+    expect(gc).toContain("directory = *");
+    expect(gc).not.toContain("[user]");
+  } finally {
+    process.env.HOME = orig;
+  }
+});
+
 test("does not write credentials.json when credentials omitted", async () => {
   const stage = await stageInjection({
     skillSources: {},
