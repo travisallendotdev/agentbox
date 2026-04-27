@@ -66,6 +66,9 @@ test("happy path: durable mode, one local repo, registers and reports success", 
   const createLine = sbxLog.split("\n").find((l) => l.startsWith("create "));
   expect(createLine).toBeDefined();
   expect(createLine).toContain(join(workdir, "sandboxes/foo/inject") + ":ro");
+  // Each local-source repo's `.git` should be mounted (rw is sbx's default)
+  // so the worktree's relative gitdir pointer resolves inside the VM.
+  expect(createLine).toContain(join(repo, ".git"));
 });
 
 test("rollback cleans up host worktrees when sbx create fails", async () => {

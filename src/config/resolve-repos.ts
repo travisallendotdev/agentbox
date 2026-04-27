@@ -1,4 +1,4 @@
-import { existsSync, statSync } from "node:fs";
+import { existsSync, realpathSync, statSync } from "node:fs";
 import { basename, isAbsolute, join } from "node:path";
 import type { Repo } from "./schema.ts";
 
@@ -35,9 +35,15 @@ export async function resolveRepos(repos: Repo[], sandboxName: string): Promise<
   for (const repo of repos) {
     let resolved: ResolvedRepo;
     if (repo.source === "local") {
-      const abs = expandHome(repo.path);
-      if (!existsSync(abs)) throw new Error(`Local repo path does not exist: ${repo.path}`);
-      if (!statSync(abs).isDirectory()) throw new Error(`Local repo path is not a directory: ${repo.path}`);
+      const expanded = expandHome(repo.path);
+      if (!existsSync(expanded)) throw new Error(`Local repo path does not exist: ${repo.path}`);
+      if (!statSync(expanded).isDirectory()) throw new Error(`Local repo path is not a directory: ${repo.path}`);
+      // Canonicalize symlinks: `git worktree add --relative-paths` resolves
+      // them when computing the gitdir pointer, and the path we pass to `sbx
+      // create` must match for the bind mount to land on the same in-VM path
+      // the pointer expects. (On macOS `/tmp` → `/private/tmp` is the common
+      // case that exposes this.)
+      const abs = realpathSync(expanded);
       const gitDir = join(abs, ".git");
       if (!existsSync(gitDir)) throw new Error(`Local repo path is not a git repo: ${repo.path}`);
       resolved = {

@@ -1,6 +1,6 @@
 import { test, expect, beforeEach } from "bun:test";
 import { resolveRepos } from "../../../src/config/resolve-repos.ts";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -18,9 +18,11 @@ test("local repo: defaults branch to agentbox/<name>", async () => {
     [{ source: "local", path: dir }],
     "my-sandbox",
   );
+  // Path is canonicalized via realpath so symlinks (e.g. /tmp → /private/tmp
+  // on macOS) match what `git worktree add --relative-paths` records.
   expect(r[0]).toMatchObject({
     source: "local",
-    path: dir,
+    path: realpathSync(dir),
     branch: "agentbox/my-sandbox",
   });
 });

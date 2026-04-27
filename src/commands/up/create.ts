@@ -37,6 +37,15 @@ export async function createSandbox(plan: UpPlan, opts: { injectMount?: string }
   // virtiofs maps host paths to identical in-VM paths, so the inject step
   // can reference `injectMount` directly inside the VM.
   if (opts.injectMount) args.push(`${opts.injectMount}:ro`);
+  // For each local-source repo, mount its `.git`. The host worktree (created
+  // with --relative-paths) carries a relative gitdir pointer that resolves to
+  // this mount via virtiofs. sbx mounts additional workspaces rw by default
+  // (only `:ro` is a recognized suffix); rw is what we want here so the agent
+  // can commit into the source's object store — that's the worktree contract.
+  for (const repo of plan.repos) {
+    if (repo.source !== "local") continue;
+    args.push(`${repo.path}/.git`);
+  }
   const r = await runSbx(args);
   if (r.exitCode !== 0) {
     throw new AgentboxError(`sbx create failed: ${r.stderr.trim()}`, {
