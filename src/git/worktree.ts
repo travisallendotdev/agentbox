@@ -31,7 +31,12 @@ export async function ensureBranch(repoDir: string, branch: string): Promise<voi
 }
 
 export async function addWorktree(repoDir: string, worktreePath: string, branch: string): Promise<void> {
-  await gitOk(repoDir, ["worktree", "add", worktreePath, branch]);
+  // --relative-paths writes a relative gitdir pointer in the worktree's `.git`
+  // file (instead of an absolute host path). When the worktree dir is bind-
+  // mounted into the sandbox, the pointer resolves through virtiofs to the
+  // source repo's `.git` mount without depending on host paths existing inside
+  // the VM. Requires git 2.48+ (checked by `agentbox doctor`).
+  await gitOk(repoDir, ["worktree", "add", "--relative-paths", worktreePath, branch]);
 }
 
 export async function removeWorktree(repoDir: string, worktreePath: string, opts?: { force?: boolean }): Promise<void> {

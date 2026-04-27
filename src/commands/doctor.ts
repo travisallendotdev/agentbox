@@ -4,6 +4,26 @@ import { AgentboxError, formatError } from "../errors.ts";
 import { homePaths } from "../paths.ts";
 import { hasHostClaudeCredentials } from "../auth/host-credentials.ts";
 
+const MIN_GIT_VERSION = [2, 48] as const;
+
+async function probeGitVersion(): Promise<[number, number] | null> {
+  try {
+    const proc = Bun.spawn({ cmd: ["git", "--version"], stdout: "pipe", stderr: "pipe" });
+    const out = await new Response(proc.stdout).text();
+    await proc.exited;
+    const m = out.match(/git version (\d+)\.(\d+)/);
+    if (!m) return null;
+    return [Number(m[1]), Number(m[2])];
+  } catch {
+    return null;
+  }
+}
+
+function gitVersionAtLeast(have: readonly [number, number], min: readonly [number, number]): boolean {
+  if (have[0] !== min[0]) return have[0] > min[0];
+  return have[1] >= min[1];
+}
+
 export async function doctor(_args: string[]): Promise<number> {
   let problems = 0;
   // sbx on PATH
@@ -24,6 +44,23 @@ export async function doctor(_args: string[]): Promise<number> {
       cause: e,
     })) + "\n");
     return 1;
+  }
+
+  // git on PATH at the version that supports `worktree add --relative-paths`
+  const gitVer = await probeGitVersion();
+  if (!gitVer) {
+    process.stderr.write(formatError(new AgentboxError("git not found on PATH or version unparseable", {
+      fix: "Install git 2.48 or newer (brew install git)",
+    })) + "\n");
+    problems++;
+  } else if (!gitVersionAtLeast(gitVer, MIN_GIT_VERSION)) {
+    process.stderr.write(formatError(new AgentboxError(
+      `git ${gitVer[0]}.${gitVer[1]} is too old; agentbox needs ${MIN_GIT_VERSION[0]}.${MIN_GIT_VERSION[1]}+ for 'worktree add --relative-paths'`,
+      { fix: "brew upgrade git (or your distro equivalent)" },
+    )) + "\n");
+    problems++;
+  } else {
+    process.stdout.write(`✓ git: ${gitVer[0]}.${gitVer[1]}\n`);
   }
 
   // === Auth checks ===

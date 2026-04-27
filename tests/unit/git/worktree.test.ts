@@ -2,7 +2,7 @@ import { test, expect, beforeEach } from "bun:test";
 import {
   ensureBranch, addWorktree, removeWorktree, listWorktrees, pruneWorktrees,
 } from "../../../src/git/worktree.ts";
-import { mkdtempSync, realpathSync, mkdirSync } from "node:fs";
+import { mkdtempSync, realpathSync, mkdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -36,6 +36,19 @@ test("addWorktree creates a working tree at the given path on the given branch",
   await addWorktree(r, wt, "agentbox/foo");
   const list = await listWorktrees(r);
   expect(list.some((w) => w.path === wtReal)).toBe(true);
+});
+
+test("addWorktree writes a relative gitdir pointer (not an absolute host path)", async () => {
+  const r = makeRepo();
+  const wtDir = mkdtempSync(join(tmpdir(), "agbx-wt-rel-"));
+  const wt = join(wtDir, "work");
+  await ensureBranch(r, "agentbox/rel");
+  await addWorktree(r, wt, "agentbox/rel");
+  const dotGit = readFileSync(join(wt, ".git"), "utf8");
+  // With --relative-paths, the pointer must be a relative path (no leading "/")
+  expect(dotGit.startsWith("gitdir: ")).toBe(true);
+  const target = dotGit.replace(/^gitdir:\s*/, "").trim();
+  expect(target.startsWith("/")).toBe(false);
 });
 
 test("removeWorktree removes a worktree", async () => {
