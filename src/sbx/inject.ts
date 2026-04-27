@@ -28,7 +28,10 @@ export async function injectFiles(sandbox: string, stagingDir: string, destInsid
   // can no longer resolve binaries on PATH; sleep infinity exits 127).
   const topLevel = readdirSync(stagingDir);
   if (topLevel.length === 0) return;
-  const tarStream = tarCreate({ cwd: stagingDir, gzip: false }, topLevel);
+  // portable: strip uid/gid/mtime so the archive doesn't carry the host
+  // user's UID (501) into the VM, where it has no agent meaning. Files
+  // extract as root and we chown to agent below.
+  const tarStream = tarCreate({ cwd: stagingDir, gzip: false, portable: true }, topLevel);
   const chunks: Uint8Array[] = [];
   for await (const chunk of tarStream as AsyncIterable<Uint8Array>) {
     chunks.push(chunk);
@@ -50,10 +53,18 @@ export async function injectFiles(sandbox: string, stagingDir: string, destInsid
   }
 
   // Extract as root: the payload writes to /etc/sandbox-persistent.sh which
-  // is owned by root in the template, and may overwrite an existing default.
-  // /home/agent/* files end up owned by root with default umask 022 — that
-  // leaves them world-readable, which is fine in a single-tenant sandbox.
-  const script = `printf '%s' '${b64}' | base64 -d | tar -xf - -C ${shSingleQuote(destInsideSandbox)}`;
+  // is owned by root in the template. After extraction:
+  //   1. chown /home/agent files to agent so claude can write its state
+  //   2. lock down .credentials.json to 0600 — claude refuses to use a
+  //      credential file with looser perms (silent failure: blank screen).
+  // chown/chmod failures are tolerated for tests where there's no `agent`
+  // user and dest is a tmp dir.
+  const dest = shSingleQuote(destInsideSandbox);
+  const script = [
+    `printf '%s' '${b64}' | base64 -d | tar -xf - -C ${dest}`,
+    `if [ -d ${dest}/home/agent ]; then chown -R agent:agent ${dest}/home/agent 2>/dev/null || true; fi`,
+    `if [ -f ${dest}/home/agent/.claude/.credentials.json ]; then chmod 600 ${dest}/home/agent/.claude/.credentials.json; fi`,
+  ].join(" && ");
   const proc = Bun.spawn({
     cmd: [sbxBin(), "exec", "-u", "root", sandbox, "sh", "-c", script],
     stdin: "ignore",
