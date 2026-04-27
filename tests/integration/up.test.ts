@@ -149,14 +149,17 @@ test("rollback on injection failure: registry not written, parent dir cleaned", 
   writeFileSync(
     p,
     `#!/bin/sh
-case "$1 $2" in
+# Skip optional '-u <user>' so 'exec -u root foo …' matches 'exec foo …'.
+sub="$1"; shift || true
+if [ "$1" = "-u" ]; then shift 2; fi
+case "$sub $1" in
   "secret ls") echo anthropic; exit 0 ;;
   "exec foo")
-    case "$3" in
-      tar) cat > /dev/null; exit 1 ;;
-      bash) cat > /dev/null; exit 0 ;;
-      *) cat > /dev/null; exit 0 ;;
-    esac
+    # Inject is invoked as: exec [-u root] foo sh -c "<base64-tar pipeline>".
+    # Fail when the inner command is sh -c (the inject); allow other execs.
+    if [ "$2" = "sh" ]; then exit 1; fi
+    cat > /dev/null
+    exit 0
     ;;
   *) exit 0 ;;
 esac
