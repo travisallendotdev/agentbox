@@ -29,10 +29,14 @@ export function resolveTemplateRef(value: string): string {
   return `docker.io/docker/sandbox-templates:${value}`;
 }
 
-export async function createSandbox(plan: UpPlan): Promise<string> {
+export async function createSandbox(plan: UpPlan, opts: { injectMount?: string } = {}): Promise<string> {
   const parent = homePaths().repoParentDir(plan.name);
   const template = resolveTemplateRef(plan.baseTemplate);
   const args = ["create", "--name", plan.name, "--template", template, "claude", parent];
+  // Mount the staging tree as a read-only "additional workspace". sbx's
+  // virtiofs maps host paths to identical in-VM paths, so the inject step
+  // can reference `injectMount` directly inside the VM.
+  if (opts.injectMount) args.push(`${opts.injectMount}:ro`);
   const r = await runSbx(args);
   if (r.exitCode !== 0) {
     throw new AgentboxError(`sbx create failed: ${r.stderr.trim()}`, {

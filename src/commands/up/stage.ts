@@ -1,4 +1,5 @@
-import { mkdtempSync, mkdirSync, writeFileSync, cpSync } from "node:fs";
+import { mkdirSync, writeFileSync, cpSync, existsSync, rmSync } from "node:fs";
+import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { HookConfig } from "../../config/schema.ts";
@@ -11,6 +12,14 @@ export interface StageInputs {
   hooks: HookConfig | undefined;
   env: Record<string, string> | undefined;
   credentials?: string;
+  /**
+   * Destination dir for the staged tree. When set, contents are written here
+   * (after wiping the dir). When omitted, a fresh mkdtemp under tmpdir is used
+   * (for tests). The dir's host path is also its in-VM path via sbx virtiofs,
+   * so it must live somewhere stable for the VM's lifetime — `agentbox up`
+   * uses `<sandboxDir>/inject/`.
+   */
+  outDir?: string;
 }
 
 export interface Staging {
@@ -34,7 +43,14 @@ function copyPluginTree(src: string, dst: string): void {
 }
 
 export async function stageInjection(inputs: StageInputs): Promise<Staging> {
-  const dir = mkdtempSync(join(tmpdir(), "agbx-stage-"));
+  let dir: string;
+  if (inputs.outDir) {
+    dir = inputs.outDir;
+    if (existsSync(dir)) rmSync(dir, { recursive: true, force: true });
+    mkdirSync(dir, { recursive: true });
+  } else {
+    dir = mkdtempSync(join(tmpdir(), "agbx-stage-"));
+  }
   // skills
   const skillsRoot = join(dir, "home/agent/.claude/skills");
   mkdirSync(skillsRoot, { recursive: true });

@@ -30,12 +30,6 @@ async function rollback(plan: UpPlan, log: Logger, opts: { pastCreate: boolean; 
   }
 }
 
-function cleanupStaging(stageDir: string | undefined): void {
-  if (stageDir && existsSync(stageDir)) {
-    try { rmSync(stageDir, { recursive: true, force: true }); } catch {}
-  }
-}
-
 export async function runUp(flags: UpFlags): Promise<number> {
   let plan: UpPlan;
   try {
@@ -71,7 +65,6 @@ export async function runUp(flags: UpFlags): Promise<number> {
   let pastWorktrees = false;
   let pastCreate = false;
   let pastRegistry = false;
-  let stageDir: string | undefined;
 
   // If --replace is in effect, tear down anything that might survive from a
   // prior run. sbx state, the local sandbox dir, registry entries, and stale
@@ -102,17 +95,21 @@ export async function runUp(flags: UpFlags): Promise<number> {
     });
     // Network policy
     await log.phase("network", () => applyNetworkPolicy(plan));
-    // sbx create — past this point, rollback runs sbx rm
-    await log.phase("sbx create", async () => { await createSandbox(plan); pastCreate = true; });
-    // Stage and inject
+    // Stage first — the staging dir is mounted into the VM during `sbx create`
+    // (transport: read-only virtiofs mount; sbx maps host paths to identical
+    // in-VM paths). This avoids the ~96 KB ARG_MAX cap of the previous
+    // base64-in-shell transport and makes inject I/O bound by virtiofs, not
+    // by exec invocations.
     const stage = await log.phase("stage", () => stageInjection({
       skillSources: plan.skillSources,
       plugins: plan.plugins,
       hooks: plan.config.hooks,
       env: plan.config.env,
       credentials: plan.claudeCredentials,
+      outDir: homePaths().injectDir(plan.name),
     }));
-    stageDir = stage.dir;
+    // sbx create — past this point, rollback runs sbx rm
+    await log.phase("sbx create", async () => { await createSandbox(plan, { injectMount: stage.dir }); pastCreate = true; });
     await log.phase("inject", () => injectFiles(plan.name, stage.dir, "/"));
     // Lifecycle: post_create
     await runLifecyclePhase("post_create", plan.name, plan.config.lifecycle?.post_create, log);
@@ -134,7 +131,9 @@ export async function runUp(flags: UpFlags): Promise<number> {
 
     log.info("up: bootstrap complete; launching agent");
     await log.close();
-    cleanupStaging(stageDir);
+    // Note: staging dir is intentionally NOT cleaned up here — it remains
+    // bind-mounted into the VM via virtiofs for the lifetime of the sandbox.
+    // It lives under sandboxDir/inject/ and is removed by `agentbox rm`.
 
     // Launch agent — this blocks until the agent exits.
     // `sbx run <name>` attaches to the existing named sandbox (created via `sbx create` above)
@@ -164,7 +163,6 @@ export async function runUp(flags: UpFlags): Promise<number> {
       await rollback(plan, log, { pastCreate, pastWorktrees, pastRegistry });
     }
     await log.close();
-    cleanupStaging(stageDir);
     process.stderr.write(formatError(err) + "\n");
     return 1;
   }

@@ -7,6 +7,7 @@ export interface HomePaths {
   sandboxesDir: string;
   sandboxDir(name: string): string;
   repoParentDir(name: string): string;
+  injectDir(name: string): string;
   logFile(name: string, timestamp: string): string;
 }
 
@@ -19,6 +20,7 @@ export function homePaths(): HomePaths {
     sandboxesDir: join(root, "sandboxes"),
     sandboxDir: (name) => join(root, "sandboxes", name),
     repoParentDir: (name) => join(root, "sandboxes", name, "repos"),
+    injectDir: (name) => join(root, "sandboxes", name, "inject"),
     logFile: (name, ts) => join(root, "logs", `${name}-${ts}.log`),
   };
 }

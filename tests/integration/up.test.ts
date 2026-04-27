@@ -60,6 +60,12 @@ test("happy path: durable mode, one local repo, registers and reports success", 
   expect(await getEntry("foo")).toBeDefined();
   const repoBaseName = repo.split("/").pop();
   expect(existsSync(join(workdir, "sandboxes/foo/repos/" + repoBaseName))).toBe(true);
+  // sbx create should have received the staging dir as a `:ro` extra workspace
+  // — that's the bind-mount transport we use for inject. Verify the arg is present.
+  const sbxLog = await Bun.file(join(workdir, "sbx.log")).text();
+  const createLine = sbxLog.split("\n").find((l) => l.startsWith("create "));
+  expect(createLine).toBeDefined();
+  expect(createLine).toContain(join(workdir, "sandboxes/foo/inject") + ":ro");
 });
 
 test("rollback cleans up host worktrees when sbx create fails", async () => {
