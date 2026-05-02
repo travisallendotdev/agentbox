@@ -1,5 +1,7 @@
 node_modules/
 dist/
-bun.lockb
 .DS_Store
 *.log
+.cursor/
+docs/plans/
+docs/superpowers/
