@@ -1,9 +1,9 @@
-import { test, expect, beforeEach } from "bun:test";
-import { stop } from "../../src/commands/stop.ts";
-import { addEntry } from "../../src/registry/registry.ts";
+import { beforeEach, expect, test } from "bun:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { stop } from "../../src/commands/stop.ts";
+import { addEntry } from "../../src/registry/registry.ts";
 
 let workdir: string;
 beforeEach(() => {
@@ -13,7 +13,9 @@ beforeEach(() => {
 
 function fakeSbx(logFile: string): string {
   const p = join(workdir, "fake-sbx.sh");
-  writeFileSync(p, `#!/bin/sh\necho "$@" >> ${logFile}\nexit 0\n`, { mode: 0o755 });
+  writeFileSync(p, `#!/bin/sh\necho "$@" >> ${logFile}\nexit 0\n`, {
+    mode: 0o755,
+  });
   return p;
 }
 
@@ -21,7 +23,10 @@ test("stop calls sbx stop and runs on_stop", async () => {
   const log = join(workdir, "sbx.log");
   process.env.AGENTBOX_SBX_BIN = fakeSbx(log);
   const cfg = join(workdir, "c.yaml");
-  writeFileSync(cfg, "mode: durable\nname: foo\nlifecycle:\n  on_stop: [\"echo bye\"]\n");
+  writeFileSync(
+    cfg,
+    'mode: durable\nname: foo\nlifecycle:\n  on_stop: ["echo bye"]\n',
+  );
   await addEntry({
     name: "foo",
     config_path: cfg,

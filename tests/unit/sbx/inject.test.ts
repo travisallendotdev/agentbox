@@ -1,11 +1,19 @@
-import { test, expect, beforeEach } from "bun:test";
-import { injectFiles } from "../../../src/sbx/inject.ts";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
+import { beforeEach, expect, test } from "bun:test";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { injectFiles } from "../../../src/sbx/inject.ts";
 
 let workdir: string;
-beforeEach(() => { workdir = mkdtempSync(join(tmpdir(), "agbx-inj-")); });
+beforeEach(() => {
+  workdir = mkdtempSync(join(tmpdir(), "agbx-inj-"));
+});
 
 // A "fake sbx" — strips the sbx framing and execs the inner command. The
 // real call shape now is:
@@ -40,8 +48,12 @@ test("injectFiles delivers files to the destination directory", async () => {
   writeFileSync(join(stagingDir, "settings.json"), `{"hooks":{}}`);
 
   await injectFiles("my-sandbox", stagingDir, captureDir);
-  expect(existsSync(join(captureDir, "skills/coding-standards/skill.md"))).toBe(true);
-  expect(readFileSync(join(captureDir, "settings.json"), "utf8")).toBe(`{"hooks":{}}`);
+  expect(existsSync(join(captureDir, "skills/coding-standards/skill.md"))).toBe(
+    true,
+  );
+  expect(readFileSync(join(captureDir, "settings.json"), "utf8")).toBe(
+    `{"hooks":{}}`,
+  );
 });
 
 test("injectFiles handles payloads beyond the old base64-in-shell ARG_MAX cap", async () => {
@@ -58,5 +70,7 @@ test("injectFiles handles payloads beyond the old base64-in-shell ARG_MAX cap", 
   writeFileSync(join(stagingDir, "big.bin"), blob);
 
   await injectFiles("my-sandbox", stagingDir, captureDir);
-  expect(readFileSync(join(captureDir, "big.bin"), "utf8").length).toBe(blob.length);
+  expect(readFileSync(join(captureDir, "big.bin"), "utf8").length).toBe(
+    blob.length,
+  );
 });

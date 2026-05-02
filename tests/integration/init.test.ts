@@ -1,21 +1,27 @@
-import { test, expect, beforeEach } from "bun:test";
-import { init } from "../../src/commands/init.ts";
-import { AgentboxConfigSchema } from "../../src/config/schema.ts";
-import { parse as parseYaml } from "yaml";
-import { mkdtempSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { beforeEach, expect, test } from "bun:test";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { parse as parseYaml } from "yaml";
+import { init } from "../../src/commands/init.ts";
+import { AgentboxConfigSchema } from "../../src/config/schema.ts";
 
 let workdir: string;
-beforeEach(() => { workdir = mkdtempSync(join(tmpdir(), "agbx-init-")); });
+beforeEach(() => {
+  workdir = mkdtempSync(join(tmpdir(), "agbx-init-"));
+});
 
 function captureStdout(): { restore: () => void; output: () => string } {
   const chunks: string[] = [];
   const orig = process.stdout.write.bind(process.stdout);
-  // @ts-ignore
-  process.stdout.write = (b: any) => { chunks.push(String(b)); return true; };
+  process.stdout.write = (b: unknown) => {
+    chunks.push(String(b));
+    return true;
+  };
   return {
-    restore: () => { process.stdout.write = orig; },
+    restore: () => {
+      process.stdout.write = orig;
+    },
     output: () => chunks.join(""),
   };
 }
@@ -23,7 +29,11 @@ function captureStdout(): { restore: () => void; output: () => string } {
 test("init with no args writes the example to stdout", async () => {
   const cap = captureStdout();
   let code: number;
-  try { code = await init([]); } finally { cap.restore(); }
+  try {
+    code = await init([]);
+  } finally {
+    cap.restore();
+  }
   expect(code).toBe(0);
   const out = cap.output();
   expect(out).toContain("mode: durable");
@@ -33,7 +43,11 @@ test("init with no args writes the example to stdout", async () => {
 
 test("the generated YAML is parseable and schema-valid", async () => {
   const cap = captureStdout();
-  try { await init([]); } finally { cap.restore(); }
+  try {
+    await init([]);
+  } finally {
+    cap.restore();
+  }
   const out = cap.output();
   const parsed = parseYaml(out);
   const r = AgentboxConfigSchema.safeParse(parsed);

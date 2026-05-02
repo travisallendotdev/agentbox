@@ -1,9 +1,9 @@
-import { test, expect, beforeEach } from "bun:test";
-import { ls } from "../../src/commands/ls.ts";
-import { addEntry } from "../../src/registry/registry.ts";
+import { beforeEach, expect, test } from "bun:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { ls } from "../../src/commands/ls.ts";
+import { addEntry } from "../../src/registry/registry.ts";
 
 let workdir: string;
 beforeEach(() => {
@@ -24,18 +24,36 @@ function fakeSbxList(json: string): string {
 test("shows registered sandboxes with running/stopped/orphaned/unmanaged classification", async () => {
   const cfg = join(workdir, "c.yaml");
   writeFileSync(cfg, "mode: durable\n");
-  await addEntry({ name: "foo", config_path: cfg, mode: "durable", created_at: "x", sbx_sandbox_id: "foo", config_hash: "0" });
-  await addEntry({ name: "ghost", config_path: cfg, mode: "durable", created_at: "x", sbx_sandbox_id: "ghost", config_hash: "0" });
-  process.env.AGENTBOX_SBX_BIN = fakeSbxList(JSON.stringify({
-    sandboxes: [
-      { name: "foo", status: "running" },
-      { name: "stranger", status: "stopped" },
-    ],
-  }));
+  await addEntry({
+    name: "foo",
+    config_path: cfg,
+    mode: "durable",
+    created_at: "x",
+    sbx_sandbox_id: "foo",
+    config_hash: "0",
+  });
+  await addEntry({
+    name: "ghost",
+    config_path: cfg,
+    mode: "durable",
+    created_at: "x",
+    sbx_sandbox_id: "ghost",
+    config_hash: "0",
+  });
+  process.env.AGENTBOX_SBX_BIN = fakeSbxList(
+    JSON.stringify({
+      sandboxes: [
+        { name: "foo", status: "running" },
+        { name: "stranger", status: "stopped" },
+      ],
+    }),
+  );
   const chunks: string[] = [];
   const origWrite = process.stdout.write.bind(process.stdout);
-  // @ts-ignore
-  process.stdout.write = (b: any) => { chunks.push(String(b)); return true; };
+  process.stdout.write = (b: unknown) => {
+    chunks.push(String(b));
+    return true;
+  };
   try {
     const code = await ls([]);
     expect(code).toBe(0);
@@ -55,8 +73,10 @@ test("ls with empty registry and empty sbx prints 'No sandboxes.'", async () => 
   process.env.AGENTBOX_SBX_BIN = fakeSbxList(JSON.stringify({ sandboxes: [] }));
   const chunks: string[] = [];
   const origWrite = process.stdout.write.bind(process.stdout);
-  // @ts-ignore
-  process.stdout.write = (b: any) => { chunks.push(String(b)); return true; };
+  process.stdout.write = (b: unknown) => {
+    chunks.push(String(b));
+    return true;
+  };
   try {
     const code = await ls([]);
     expect(code).toBe(0);

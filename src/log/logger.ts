@@ -1,4 +1,4 @@
-import { mkdirSync, createWriteStream, type WriteStream } from "node:fs";
+import { createWriteStream, mkdirSync, type WriteStream } from "node:fs";
 import { homePaths } from "../paths.ts";
 
 export interface Logger {
@@ -10,14 +10,19 @@ export interface Logger {
   close(): Promise<void>;
 }
 
-export interface LoggerOptions { verbose?: boolean }
+export interface LoggerOptions {
+  verbose?: boolean;
+}
 
 function ts(): string {
   const d = new Date();
   return d.toISOString().replace(/[-:]/g, "").replace(/\..+/, "");
 }
 
-export async function createLogger(sandboxName: string, opts: LoggerOptions = {}): Promise<Logger> {
+export async function createLogger(
+  sandboxName: string,
+  opts: LoggerOptions = {},
+): Promise<Logger> {
   const paths = homePaths();
   mkdirSync(paths.logsDir, { recursive: true });
   const path = paths.logFile(sandboxName, ts());
@@ -47,7 +52,10 @@ export async function createLogger(sandboxName: string, opts: LoggerOptions = {}
         return result;
       } catch (err) {
         phasePrefix = "";
-        write("ERR ", `phase: ${name} failed (${Date.now() - start}ms): ${(err as Error).message}`);
+        write(
+          "ERR ",
+          `phase: ${name} failed (${Date.now() - start}ms): ${(err as Error).message}`,
+        );
         throw err;
       } finally {
         phasePrefix = "";

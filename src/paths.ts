@@ -12,7 +12,8 @@ export interface HomePaths {
 }
 
 export function homePaths(): HomePaths {
-  const root = process.env.AGENTBOX_HOME ?? join(process.env.HOME!, ".agentbox");
+  const root =
+    process.env.AGENTBOX_HOME ?? join(process.env.HOME!, ".agentbox");
   return {
     root,
     registry: join(root, "registry.json"),

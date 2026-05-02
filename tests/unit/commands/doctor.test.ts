@@ -1,8 +1,8 @@
-import { test, expect, beforeEach, afterEach } from "bun:test";
-import { doctor } from "../../../src/commands/doctor.ts";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { afterEach, beforeEach, expect, test } from "bun:test";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { doctor } from "../../../src/commands/doctor.ts";
 
 let workdir: string;
 beforeEach(() => {
@@ -15,7 +15,11 @@ afterEach(() => {
   delete process.env.AGENTBOX_CLAUDE_CREDENTIALS_FILE;
 });
 
-function fakeSbx(opts: { version?: string; secrets?: string[]; lsJson?: string }): string {
+function fakeSbx(opts: {
+  version?: string;
+  secrets?: string[];
+  lsJson?: string;
+}): string {
   const p = join(workdir, "fake-sbx.sh");
   const versionOut = opts.version ?? "sbx 1.0.0";
   const secretsOut = (opts.secrets ?? []).join("\n");

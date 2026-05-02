@@ -1,7 +1,9 @@
-import { join } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 
-interface MarketplaceSource { [k: string]: unknown }
+interface MarketplaceSource {
+  [k: string]: unknown;
+}
 
 function claudeHome(): string {
   if (process.env.CLAUDE_HOME) return process.env.CLAUDE_HOME;

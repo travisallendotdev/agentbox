@@ -1,12 +1,12 @@
 #!/usr/bin/env bun
-import { up } from "./commands/up.ts";
-import { start as run } from "./commands/start.ts";
-import { stop } from "./commands/stop.ts";
-import { shell } from "./commands/shell.ts";
-import { rm } from "./commands/rm.ts";
-import { ls } from "./commands/ls.ts";
 import { doctor } from "./commands/doctor.ts";
 import { init } from "./commands/init.ts";
+import { ls } from "./commands/ls.ts";
+import { rm } from "./commands/rm.ts";
+import { shell } from "./commands/shell.ts";
+import { start as run } from "./commands/start.ts";
+import { stop } from "./commands/stop.ts";
+import { up } from "./commands/up.ts";
 import { formatError } from "./errors.ts";
 
 const USAGE = `agentbox — declarative Claude Code sandboxes on Docker sbx
@@ -25,7 +25,15 @@ Run agentbox <command> --help for command-specific help.
 `;
 
 const HANDLERS: Record<string, (args: string[]) => Promise<number>> = {
-  up, run, start: run, stop, shell, rm, ls, doctor, init,
+  up,
+  run,
+  start: run,
+  stop,
+  shell,
+  rm,
+  ls,
+  doctor,
+  init,
 };
 
 export async function runCli(argv: string[]): Promise<number> {
@@ -42,7 +50,7 @@ export async function runCli(argv: string[]): Promise<number> {
   try {
     return await handler(rest);
   } catch (err) {
-    process.stderr.write(formatError(err) + "\n");
+    process.stderr.write(`${formatError(err)}\n`);
     return 1;
   }
 }

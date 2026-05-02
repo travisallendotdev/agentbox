@@ -1,9 +1,13 @@
-import { test, expect, beforeEach, afterEach } from "bun:test";
+import { afterEach, beforeEach, expect, test } from "bun:test";
 import { homePaths } from "../../src/paths.ts";
 
 const origHome = process.env.AGENTBOX_HOME;
-beforeEach(() => { process.env.AGENTBOX_HOME = "/tmp/agentbox-test"; });
-afterEach(() => { process.env.AGENTBOX_HOME = origHome; });
+beforeEach(() => {
+  process.env.AGENTBOX_HOME = "/tmp/agentbox-test";
+});
+afterEach(() => {
+  process.env.AGENTBOX_HOME = origHome;
+});
 
 test("paths derive from AGENTBOX_HOME when set", () => {
   const p = homePaths();

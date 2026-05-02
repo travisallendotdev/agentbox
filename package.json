@@ -1,14 +1,17 @@
 {
   "name": "agentbox",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "module": "src/cli.ts",
-  "bin": { "agentbox": "src/cli.ts" },
+  "bin": {
+    "agentbox": "src/cli.ts"
+  },
   "scripts": {
     "test": "bun test",
     "build": "bun build --compile --target=bun-darwin-arm64 ./src/cli.ts --outfile dist/agentbox",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "check": "BIOME_BINARY=$PWD/node_modules/@biomejs/cli-darwin-arm64/biome biome check ./src ./tests ./e2e",
+    "format": "BIOME_BINARY=$PWD/node_modules/@biomejs/cli-darwin-arm64/biome biome check --write ./src ./tests ./e2e"
   },
   "dependencies": {
     "yaml": "^2.5.0",
@@ -17,6 +20,7 @@
     "tar": "^7.4.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.14",
     "@types/proper-lockfile": "^4.1.4",
     "@types/tar": "^6.1.13",
     "typescript": "^5.5.0"

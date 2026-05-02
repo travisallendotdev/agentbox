@@ -23,7 +23,9 @@ async function ensureRegistryFile(): Promise<string> {
 
 async function withLock<T>(fn: () => Promise<T>): Promise<T> {
   const path = await ensureRegistryFile();
-  const release = await lockfile.lock(path, { retries: { retries: 20, minTimeout: 25, maxTimeout: 200 } });
+  const release = await lockfile.lock(path, {
+    retries: { retries: 20, minTimeout: 25, maxTimeout: 200 },
+  });
   try {
     return await fn();
   } finally {
@@ -39,14 +41,19 @@ export async function readRegistry(): Promise<Registry> {
 
 async function writeRegistry(reg: Registry): Promise<void> {
   const path = await ensureRegistryFile();
-  await Bun.write(path, JSON.stringify(reg, null, 2) + "\n");
+  await Bun.write(path, `${JSON.stringify(reg, null, 2)}\n`);
 }
 
-export async function addEntry(entry: RegistryEntry, opts?: { replace?: boolean }): Promise<void> {
+export async function addEntry(
+  entry: RegistryEntry,
+  opts?: { replace?: boolean },
+): Promise<void> {
   await withLock(async () => {
     const reg = await readRegistry();
     if (reg[entry.name] && !opts?.replace) {
-      throw new Error(`Sandbox '${entry.name}' already exists in the registry. Use --replace to overwrite.`);
+      throw new Error(
+        `Sandbox '${entry.name}' already exists in the registry. Use --replace to overwrite.`,
+      );
     }
     reg[entry.name] = entry;
     await writeRegistry(reg);
@@ -61,7 +68,9 @@ export async function removeEntry(name: string): Promise<void> {
   });
 }
 
-export async function getEntry(name: string): Promise<RegistryEntry | undefined> {
+export async function getEntry(
+  name: string,
+): Promise<RegistryEntry | undefined> {
   const reg = await readRegistry();
   return reg[name];
 }

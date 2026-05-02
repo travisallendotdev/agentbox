@@ -1,4 +1,4 @@
-import { test, expect } from "bun:test";
+import { expect, test } from "bun:test";
 import { AgentboxConfigSchema } from "../../../src/config/schema.ts";
 
 test("minimal valid config requires only mode", () => {
@@ -23,11 +23,20 @@ test("accepts a fully populated config", () => {
     base_template: "claude-code-docker",
     repos: [
       { source: "local", path: "~/dev/a", branch: "agent/x" },
-      { source: "git", url: "git@github.com:o/r.git", branch: "main", place: "workspace" },
+      {
+        source: "git",
+        url: "git@github.com:o/r.git",
+        branch: "main",
+        place: "workspace",
+      },
     ],
     skills: ["coding-standards", "superpowers:brainstorming", "~/p/skill-x"],
     hooks: { PostToolUse: [{ matcher: "Bash", command: "echo hi" }] },
-    lifecycle: { post_create: ["echo a"], pre_agent: ["echo b"], on_stop: ["echo c"] },
+    lifecycle: {
+      post_create: ["echo a"],
+      pre_agent: ["echo b"],
+      on_stop: ["echo c"],
+    },
     network: { allow: ["github.com:443"] },
     env: { FOO: "bar" },
     secrets: ["anthropic"],
@@ -58,16 +67,25 @@ test("rejects unknown top-level field", () => {
 });
 
 test("accepts auth: session", () => {
-  const r = AgentboxConfigSchema.safeParse({ mode: "ephemeral", auth: "session" });
+  const r = AgentboxConfigSchema.safeParse({
+    mode: "ephemeral",
+    auth: "session",
+  });
   expect(r.success).toBe(true);
 });
 
 test("accepts auth: api_key", () => {
-  const r = AgentboxConfigSchema.safeParse({ mode: "ephemeral", auth: "api_key" });
+  const r = AgentboxConfigSchema.safeParse({
+    mode: "ephemeral",
+    auth: "api_key",
+  });
   expect(r.success).toBe(true);
 });
 
 test("rejects invalid auth mode", () => {
-  const r = AgentboxConfigSchema.safeParse({ mode: "ephemeral", auth: "weird" });
+  const r = AgentboxConfigSchema.safeParse({
+    mode: "ephemeral",
+    auth: "weird",
+  });
   expect(r.success).toBe(false);
 });

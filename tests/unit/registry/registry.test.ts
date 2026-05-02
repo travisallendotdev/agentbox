@@ -1,11 +1,15 @@
-import { test, expect, beforeEach } from "bun:test";
-import {
-  readRegistry, addEntry, removeEntry, getEntry, listEntries,
-  type RegistryEntry,
-} from "../../../src/registry/registry.ts";
-import { mkdtempSync, rmSync } from "node:fs";
+import { beforeEach, expect, test } from "bun:test";
+import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import {
+  addEntry,
+  getEntry,
+  listEntries,
+  type RegistryEntry,
+  readRegistry,
+  removeEntry,
+} from "../../../src/registry/registry.ts";
 
 let home: string;
 beforeEach(() => {

@@ -1,6 +1,6 @@
-import { runSbx } from "../../sbx/client.ts";
-import { homePaths } from "../../paths.ts";
 import { AgentboxError } from "../../errors.ts";
+import { homePaths } from "../../paths.ts";
+import { runSbx } from "../../sbx/client.ts";
 import type { UpPlan } from "./plan.ts";
 
 export async function applyNetworkPolicy(plan: UpPlan): Promise<void> {
@@ -8,9 +8,12 @@ export async function applyNetworkPolicy(plan: UpPlan): Promise<void> {
   for (const entry of allow) {
     const r = await runSbx(["policy", "allow", "network", entry]);
     if (r.exitCode !== 0) {
-      throw new AgentboxError(`sbx policy allow network ${entry} failed: ${r.stderr.trim()}`, {
-        fix: "Verify the network entry syntax (e.g., 'github.com:443') and that sbx is healthy",
-      });
+      throw new AgentboxError(
+        `sbx policy allow network ${entry} failed: ${r.stderr.trim()}`,
+        {
+          fix: "Verify the network entry syntax (e.g., 'github.com:443') and that sbx is healthy",
+        },
+      );
     }
   }
 }
@@ -29,10 +32,21 @@ export function resolveTemplateRef(value: string): string {
   return `docker.io/docker/sandbox-templates:${value}`;
 }
 
-export async function createSandbox(plan: UpPlan, opts: { injectMount?: string } = {}): Promise<string> {
+export async function createSandbox(
+  plan: UpPlan,
+  opts: { injectMount?: string } = {},
+): Promise<string> {
   const parent = homePaths().repoParentDir(plan.name);
   const template = resolveTemplateRef(plan.baseTemplate);
-  const args = ["create", "--name", plan.name, "--template", template, "claude", parent];
+  const args = [
+    "create",
+    "--name",
+    plan.name,
+    "--template",
+    template,
+    "claude",
+    parent,
+  ];
   // Mount the staging tree as a read-only "additional workspace". sbx's
   // virtiofs maps host paths to identical in-VM paths, so the inject step
   // can reference `injectMount` directly inside the VM.
@@ -53,6 +67,11 @@ export async function createSandbox(plan: UpPlan, opts: { injectMount?: string }
     });
   }
   // sbx outputs the sandbox id; capture last non-empty line as the id, fallback to plan.name.
-  const id = r.stdout.split("\n").map((s) => s.trim()).filter(Boolean).pop() ?? plan.name;
+  const id =
+    r.stdout
+      .split("\n")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .pop() ?? plan.name;
   return id;
 }

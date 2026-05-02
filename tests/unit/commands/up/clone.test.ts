@@ -1,8 +1,8 @@
-import { test, expect, beforeEach } from "bun:test";
-import { cloneGitRepos } from "../../../../src/commands/up/clone.ts";
+import { beforeEach, expect, test } from "bun:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { cloneGitRepos } from "../../../../src/commands/up/clone.ts";
 
 let workdir: string;
 beforeEach(() => {
@@ -12,7 +12,9 @@ beforeEach(() => {
 
 function fakeSbxRecording(logFile: string): string {
   const p = join(workdir, "fake-sbx.sh");
-  writeFileSync(p, `#!/bin/sh\necho "$@" >> ${logFile}\nexit 0\n`, { mode: 0o755 });
+  writeFileSync(p, `#!/bin/sh\necho "$@" >> ${logFile}\nexit 0\n`, {
+    mode: 0o755,
+  });
   return p;
 }
 
@@ -33,7 +35,13 @@ test("includes branch when specified", async () => {
   const log = join(workdir, "sbx.log");
   process.env.AGENTBOX_SBX_BIN = fakeSbxRecording(log);
   await cloneGitRepos("foo", [
-    { source: "git", url: "https://x/y.git", place: "workspace", branch: "main", name: "y" },
+    {
+      source: "git",
+      url: "https://x/y.git",
+      place: "workspace",
+      branch: "main",
+      name: "y",
+    },
   ]);
   const lines = await Bun.file(log).text();
   expect(lines).toContain("--branch main");

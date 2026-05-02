@@ -1,4 +1,4 @@
-import { test, expect } from "bun:test";
+import { expect, test } from "bun:test";
 import { runSbx, type SbxResult } from "../../../src/sbx/client.ts";
 
 test("runSbx echoes argv and captures stdout", async () => {

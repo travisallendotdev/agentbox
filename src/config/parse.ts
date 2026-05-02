@@ -1,5 +1,5 @@
 import { parse as parseYaml } from "yaml";
-import { AgentboxConfigSchema, type AgentboxConfig } from "./schema.ts";
+import { type AgentboxConfig, AgentboxConfigSchema } from "./schema.ts";
 
 const VAR_RE = /\$\{([A-Z_][A-Z0-9_]*)\}/g;
 
@@ -27,8 +27,13 @@ function applyInterpolation(raw: unknown): unknown {
   if (typeof out.prompt === "string") out.prompt = interpolate(out.prompt);
   if (Array.isArray(out.repos)) {
     for (const repo of out.repos) {
-      if (repo && typeof repo === "object" && typeof (repo as any).path === "string") {
-        (repo as any).path = interpolate((repo as any).path);
+      if (
+        repo &&
+        typeof repo === "object" &&
+        typeof (repo as Record<string, unknown>).path === "string"
+      ) {
+        const r = repo as Record<string, unknown>;
+        r.path = interpolate(r.path as string);
       }
     }
   }

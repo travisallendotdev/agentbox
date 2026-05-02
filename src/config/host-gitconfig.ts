@@ -1,5 +1,5 @@
-import { join } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 
 function homeDir(): string {
   const h = process.env.HOME;
@@ -18,7 +18,7 @@ function scrubCredentialSections(text: string): string {
   for (const line of text.split("\n")) {
     const sectionMatch = line.match(/^\s*\[([^\]\s]+)/);
     if (sectionMatch) {
-      inCredential = sectionMatch[1]!.toLowerCase() === "credential";
+      inCredential = sectionMatch[1]?.toLowerCase() === "credential";
       if (inCredential) continue;
     }
     if (!inCredential) out.push(line);

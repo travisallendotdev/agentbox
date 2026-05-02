@@ -1,4 +1,4 @@
-import { test, expect } from "bun:test";
+import { expect, test } from "bun:test";
 import { runCli } from "../../src/cli.ts";
 
 test("unknown command exits with code 2 and usage", async () => {

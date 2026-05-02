@@ -1,16 +1,20 @@
 import { existsSync, rmSync } from "node:fs";
+import { parseConfigFile } from "../config/parse.ts";
+import type { ResolvedRepo } from "../config/resolve-repos.ts";
+import { resolveRepos } from "../config/resolve-repos.ts";
+import { AgentboxError, formatError } from "../errors.ts";
+import { runLifecyclePhase } from "../lifecycle/hooks.ts";
+import { createLogger } from "../log/logger.ts";
+import { homePaths } from "../paths.ts";
 import { getEntry, removeEntry } from "../registry/registry.ts";
 import { runSbx } from "../sbx/client.ts";
-import { runLifecyclePhase } from "../lifecycle/hooks.ts";
-import { parseConfigFile } from "../config/parse.ts";
-import { resolveRepos } from "../config/resolve-repos.ts";
 import { assertWorktreesClean, removeHostWorktrees } from "./up/worktrees.ts";
-import { homePaths } from "../paths.ts";
-import { createLogger } from "../log/logger.ts";
-import { AgentboxError, formatError } from "../errors.ts";
-import type { ResolvedRepo } from "../config/resolve-repos.ts";
 
-interface RmFlags { name: string; force: boolean; pruneBranches: boolean }
+interface RmFlags {
+  name: string;
+  force: boolean;
+  pruneBranches: boolean;
+}
 
 function parseRmFlags(args: string[]): RmFlags {
   let name: string | undefined;
@@ -19,18 +23,31 @@ function parseRmFlags(args: string[]): RmFlags {
   for (const a of args) {
     if (a === "--force") force = true;
     else if (a === "--prune-branches") pruneBranches = true;
-    else if (a.startsWith("--")) throw new AgentboxError(`unknown flag: ${a}`, { fix: "Run `agentbox --help`" });
-    else if (name) throw new AgentboxError(`unexpected argument: ${a}`, { fix: "Only one positional name argument is accepted" });
+    else if (a.startsWith("--"))
+      throw new AgentboxError(`unknown flag: ${a}`, {
+        fix: "Run `agentbox --help`",
+      });
+    else if (name)
+      throw new AgentboxError(`unexpected argument: ${a}`, {
+        fix: "Only one positional name argument is accepted",
+      });
     else name = a;
   }
-  if (!name) throw new AgentboxError("usage: agentbox rm <name> [--force] [--prune-branches]");
+  if (!name)
+    throw new AgentboxError(
+      "usage: agentbox rm <name> [--force] [--prune-branches]",
+    );
   return { name, force, pruneBranches };
 }
 
 export async function rm(args: string[]): Promise<number> {
   let flags: RmFlags;
-  try { flags = parseRmFlags(args); }
-  catch (err) { process.stderr.write(formatError(err) + "\n"); return 1; }
+  try {
+    flags = parseRmFlags(args);
+  } catch (err) {
+    process.stderr.write(`${formatError(err)}\n`);
+    return 1;
+  }
 
   const entry = await getEntry(flags.name);
   if (!entry) {
@@ -42,14 +59,23 @@ export async function rm(args: string[]): Promise<number> {
       const r = await runSbx(["ls", "--json"]);
       if (r.exitCode === 0 && r.stdout.trim()) {
         const live = JSON.parse(r.stdout) as { name: string }[];
-        hasSbx = live.some(s => s.name === flags.name);
+        hasSbx = live.some((s) => s.name === flags.name);
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     if (!hasDir && !hasSbx) {
-      process.stderr.write(formatError(new AgentboxError(`No sandbox '${flags.name}' in registry, on disk, or in sbx`, {
-        fix: "Run `agentbox ls` to see registered sandboxes",
-      })) + "\n");
+      process.stderr.write(
+        `${formatError(
+          new AgentboxError(
+            `No sandbox '${flags.name}' in registry, on disk, or in sbx`,
+            {
+              fix: "Run `agentbox ls` to see registered sandboxes",
+            },
+          ),
+        )}\n`,
+      );
       return 1;
     }
 
@@ -61,10 +87,14 @@ export async function rm(args: string[]): Promise<number> {
         try {
           const r = await runSbx(["rm", flags.name]);
           if (r.exitCode !== 0) log.warn(`sbx rm: ${r.stderr.trim()}`);
-        } catch (e) { log.warn(`sbx rm: ${formatError(e)}`); }
+        } catch (e) {
+          log.warn(`sbx rm: ${formatError(e)}`);
+        }
       }
       if (hasDir) rmSync(sandboxDir, { recursive: true, force: true });
-      process.stdout.write(`Cleaned orphan state for '${flags.name}' (no registry entry; source-repo worktrees not pruned — run \`git worktree prune\` in each source repo if needed)\n`);
+      process.stdout.write(
+        `Cleaned orphan state for '${flags.name}' (no registry entry; source-repo worktrees not pruned — run \`git worktree prune\` in each source repo if needed)\n`,
+      );
       return 0;
     } finally {
       await log.close();
@@ -80,7 +110,9 @@ export async function rm(args: string[]): Promise<number> {
       repos = await resolveRepos(cfg.repos ?? [], flags.name);
     } catch (cfgErr) {
       // Config couldn't be parsed (file deleted, schema change, etc.) — proceed with bare cleanup
-      log.warn(`config unreadable; performing bare cleanup: ${formatError(cfgErr)}`);
+      log.warn(
+        `config unreadable; performing bare cleanup: ${formatError(cfgErr)}`,
+      );
     }
 
     // --- Phase 2: pre-flight dirty-worktree check (before any destructive operation) ---
@@ -96,15 +128,24 @@ export async function rm(args: string[]): Promise<number> {
     // on_stop lifecycle hook
     if (cfg !== null) {
       try {
-        await runLifecyclePhase("on_stop", flags.name, cfg.lifecycle?.on_stop, log);
-      } catch (e) { log.warn(`on_stop: ${formatError(e)}`); }
+        await runLifecyclePhase(
+          "on_stop",
+          flags.name,
+          cfg.lifecycle?.on_stop,
+          log,
+        );
+      } catch (e) {
+        log.warn(`on_stop: ${formatError(e)}`);
+      }
     }
 
     // Destroy the VM
     try {
       const r = await runSbx(["rm", flags.name]);
       if (r.exitCode !== 0) log.warn(`sbx rm: ${r.stderr.trim()}`);
-    } catch (e) { log.warn(`sbx rm: ${formatError(e)}`); }
+    } catch (e) {
+      log.warn(`sbx rm: ${formatError(e)}`);
+    }
 
     // Remove host worktrees (always force at this point — we already pre-flighted)
     if (repos !== null) {
@@ -125,7 +166,8 @@ export async function rm(args: string[]): Promise<number> {
           });
           const code = await proc.exited;
           const stderr = await new Response(proc.stderr).text();
-          if (code !== 0) log.warn(`branch -D ${r.branch} on ${r.path}: ${stderr.trim()}`);
+          if (code !== 0)
+            log.warn(`branch -D ${r.branch} on ${r.path}: ${stderr.trim()}`);
         }
       }
     }
@@ -137,7 +179,7 @@ export async function rm(args: string[]): Promise<number> {
     return 0;
   } catch (err) {
     log.error(formatError(err));
-    process.stderr.write(formatError(err) + "\n");
+    process.stderr.write(`${formatError(err)}\n`);
     return 1;
   } finally {
     await log.close();

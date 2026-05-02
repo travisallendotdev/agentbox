@@ -1,8 +1,8 @@
-import { test, expect, beforeEach } from "bun:test";
-import { parseConfigFile } from "../../../src/config/parse.ts";
+import { beforeEach, expect, test } from "bun:test";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { parseConfigFile } from "../../../src/config/parse.ts";
 
 const FIX = join(import.meta.dir, "../../fixtures/configs");
 
@@ -21,12 +21,17 @@ test("interpolates ${VAR} in env, prompt, repos[].path", async () => {
   expect(cfg.env?.RUST_LOG).toBe("debug");
   expect(cfg.env?.STATIC).toBe("hi");
   expect(cfg.prompt).toBe("hello");
-  expect(cfg.repos?.[0]).toMatchObject({ source: "local", path: `${process.env.HOME}/dev/project-a` });
+  expect(cfg.repos?.[0]).toMatchObject({
+    source: "local",
+    path: `${process.env.HOME}/dev/project-a`,
+  });
 });
 
 test("missing host env var yields a clear error", async () => {
   delete process.env.TEST_LOG_LEVEL;
-  await expect(parseConfigFile(join(FIX, "full.yaml"))).rejects.toThrow(/TEST_LOG_LEVEL/);
+  await expect(parseConfigFile(join(FIX, "full.yaml"))).rejects.toThrow(
+    /TEST_LOG_LEVEL/,
+  );
 });
 
 test("does not interpolate ${VAR} in fields outside the allowlist", async () => {

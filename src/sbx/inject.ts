@@ -18,7 +18,11 @@ function sbxBin(): string {
  * chown/chmod failures are tolerated for tests where there's no `agent` user
  * and dest is a tmp dir.
  */
-export async function injectFiles(sandbox: string, stagingDir: string, destInsideSandbox: string): Promise<void> {
+export async function injectFiles(
+  sandbox: string,
+  stagingDir: string,
+  destInsideSandbox: string,
+): Promise<void> {
   const src = shSingleQuote(stagingDir);
   const dest = shSingleQuote(destInsideSandbox);
   const script = [
@@ -39,7 +43,9 @@ export async function injectFiles(sandbox: string, stagingDir: string, destInsid
     proc.exited,
   ]);
   if (code !== 0) {
-    throw new Error(`sbx exec inject failed (code ${code}): ${stderr}\n${stdout}`);
+    throw new Error(
+      `sbx exec inject failed (code ${code}): ${stderr}\n${stdout}`,
+    );
   }
 }
 

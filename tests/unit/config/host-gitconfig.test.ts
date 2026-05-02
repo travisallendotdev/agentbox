@@ -1,8 +1,8 @@
-import { test, expect, beforeEach, afterEach } from "bun:test";
-import { buildSandboxGitconfig } from "../../../src/config/host-gitconfig.ts";
+import { afterEach, beforeEach, expect, test } from "bun:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { buildSandboxGitconfig } from "../../../src/config/host-gitconfig.ts";
 
 const orig = process.env.HOME;
 let home: string;
@@ -10,7 +10,9 @@ beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "agbx-hgc-"));
   process.env.HOME = home;
 });
-afterEach(() => { process.env.HOME = orig; });
+afterEach(() => {
+  process.env.HOME = orig;
+});
 
 test("returns a [safe] block when there is no host gitconfig", () => {
   const out = buildSandboxGitconfig();
@@ -18,13 +20,16 @@ test("returns a [safe] block when there is no host gitconfig", () => {
 });
 
 test("preserves user/alias sections from host gitconfig", () => {
-  writeFileSync(join(home, ".gitconfig"), [
-    "[user]",
-    "\tname = Travis",
-    "\temail = travis@example.com",
-    "[alias]",
-    "\tco = checkout",
-  ].join("\n"));
+  writeFileSync(
+    join(home, ".gitconfig"),
+    [
+      "[user]",
+      "\tname = Travis",
+      "\temail = travis@example.com",
+      "[alias]",
+      "\tco = checkout",
+    ].join("\n"),
+  );
   const out = buildSandboxGitconfig();
   expect(out).toContain("[user]");
   expect(out).toContain("name = Travis");
@@ -33,16 +38,19 @@ test("preserves user/alias sections from host gitconfig", () => {
 });
 
 test("strips both bare and qualified [credential] sections", () => {
-  writeFileSync(join(home, ".gitconfig"), [
-    "[user]",
-    "\tname = T",
-    "[credential]",
-    "\thelper = osxkeychain",
-    "[credential \"https://github.com\"]",
-    "\thelper = !gh auth git-credential",
-    "[alias]",
-    "\tst = status",
-  ].join("\n"));
+  writeFileSync(
+    join(home, ".gitconfig"),
+    [
+      "[user]",
+      "\tname = T",
+      "[credential]",
+      "\thelper = osxkeychain",
+      '[credential "https://github.com"]',
+      "\thelper = !gh auth git-credential",
+      "[alias]",
+      "\tst = status",
+    ].join("\n"),
+  );
   const out = buildSandboxGitconfig();
   expect(out).not.toContain("credential");
   expect(out).not.toContain("osxkeychain");
@@ -52,12 +60,12 @@ test("strips both bare and qualified [credential] sections", () => {
 });
 
 test("section detection is case-insensitive on the section name", () => {
-  writeFileSync(join(home, ".gitconfig"), [
-    "[user]",
-    "\tname = T",
-    "[Credential]",
-    "\thelper = osxkeychain",
-  ].join("\n"));
+  writeFileSync(
+    join(home, ".gitconfig"),
+    ["[user]", "\tname = T", "[Credential]", "\thelper = osxkeychain"].join(
+      "\n",
+    ),
+  );
   const out = buildSandboxGitconfig();
   expect(out).not.toContain("osxkeychain");
 });

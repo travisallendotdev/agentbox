@@ -91,7 +91,10 @@ secrets:
 prompt: "Refactor the login module to use the new session API. Tests in tests/login.test.ts."
 `;
 
-interface InitFlags { path?: string; force: boolean }
+interface InitFlags {
+  path?: string;
+  force: boolean;
+}
 
 function parseInitFlags(args: string[]): InitFlags {
   let path: string | undefined;
@@ -99,9 +102,13 @@ function parseInitFlags(args: string[]): InitFlags {
   for (const a of args) {
     if (a === "--force" || a === "-f") force = true;
     else if (a.startsWith("--") || a.startsWith("-")) {
-      throw new AgentboxError(`unknown flag: ${a}`, { fix: "Run `agentbox --help`" });
+      throw new AgentboxError(`unknown flag: ${a}`, {
+        fix: "Run `agentbox --help`",
+      });
     } else if (path) {
-      throw new AgentboxError(`unexpected argument: ${a}`, { fix: "Only one positional path argument is accepted" });
+      throw new AgentboxError(`unexpected argument: ${a}`, {
+        fix: "Only one positional path argument is accepted",
+      });
     } else {
       path = a;
     }
@@ -111,8 +118,10 @@ function parseInitFlags(args: string[]): InitFlags {
 
 export async function init(args: string[]): Promise<number> {
   let flags: InitFlags;
-  try { flags = parseInitFlags(args); } catch (err) {
-    process.stderr.write(formatError(err) + "\n");
+  try {
+    flags = parseInitFlags(args);
+  } catch (err) {
+    process.stderr.write(`${formatError(err)}\n`);
     return 1;
   }
 
@@ -122,9 +131,13 @@ export async function init(args: string[]): Promise<number> {
   }
 
   if (existsSync(flags.path) && !flags.force) {
-    process.stderr.write(formatError(new AgentboxError(`File already exists: ${flags.path}`, {
-      fix: "Use --force to overwrite, or pick a different path",
-    })) + "\n");
+    process.stderr.write(
+      `${formatError(
+        new AgentboxError(`File already exists: ${flags.path}`, {
+          fix: "Use --force to overwrite, or pick a different path",
+        }),
+      )}\n`,
+    );
     return 1;
   }
 
@@ -133,7 +146,7 @@ export async function init(args: string[]): Promise<number> {
     process.stderr.write(`Wrote ${flags.path}\n`);
     return 0;
   } catch (err) {
-    process.stderr.write(formatError(err) + "\n");
+    process.stderr.write(`${formatError(err)}\n`);
     return 1;
   }
 }

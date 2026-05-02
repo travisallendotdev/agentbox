@@ -1,14 +1,20 @@
-import { test, expect, beforeEach, afterEach } from "bun:test";
-import { readHostClaudeCredentials, hasHostClaudeCredentials } from "../../../src/auth/host-credentials.ts";
+import { afterEach, beforeEach, expect, test } from "bun:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import {
+  hasHostClaudeCredentials,
+  readHostClaudeCredentials,
+} from "../../../src/auth/host-credentials.ts";
 
 let workdir: string;
 const origOverride = process.env.AGENTBOX_CLAUDE_CREDENTIALS_FILE;
-beforeEach(() => { workdir = mkdtempSync(join(tmpdir(), "agbx-cred-")); });
+beforeEach(() => {
+  workdir = mkdtempSync(join(tmpdir(), "agbx-cred-"));
+});
 afterEach(() => {
-  if (origOverride === undefined) delete process.env.AGENTBOX_CLAUDE_CREDENTIALS_FILE;
+  if (origOverride === undefined)
+    delete process.env.AGENTBOX_CLAUDE_CREDENTIALS_FILE;
   else process.env.AGENTBOX_CLAUDE_CREDENTIALS_FILE = origOverride;
 });
 

@@ -1,32 +1,47 @@
-import { mkdirSync, existsSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync } from "node:fs";
+import { AgentboxError, formatError } from "../../errors.ts";
+import { pruneWorktrees } from "../../git/worktree.ts";
+import { runLifecyclePhase } from "../../lifecycle/hooks.ts";
+import { createLogger, type Logger } from "../../log/logger.ts";
 import { homePaths } from "../../paths.ts";
 import { addEntry, getEntry, removeEntry } from "../../registry/registry.ts";
 import { runSbx, runSbxInherit } from "../../sbx/client.ts";
 import { injectFiles } from "../../sbx/inject.ts";
-import { createLogger, type Logger } from "../../log/logger.ts";
-import { AgentboxError, formatError } from "../../errors.ts";
-import { buildUpPlan, type UpPlan } from "./plan.ts";
+import { cloneGitRepos } from "./clone.ts";
 import { applyNetworkPolicy, createSandbox } from "./create.ts";
+import type { UpFlags } from "./flags.ts";
+import { buildUpPlan, type UpPlan } from "./plan.ts";
 import { stageInjection } from "./stage.ts";
 import { createHostWorktrees, removeHostWorktrees } from "./worktrees.ts";
-import { pruneWorktrees } from "../../git/worktree.ts";
-import { cloneGitRepos } from "./clone.ts";
-import { runLifecyclePhase } from "../../lifecycle/hooks.ts";
-import type { UpFlags } from "./flags.ts";
 
-async function rollback(plan: UpPlan, log: Logger, opts: { pastCreate: boolean; pastWorktrees: boolean; pastRegistry: boolean }): Promise<void> {
+async function rollback(
+  plan: UpPlan,
+  log: Logger,
+  opts: { pastCreate: boolean; pastWorktrees: boolean; pastRegistry: boolean },
+): Promise<void> {
   log.warn("rolling back partial sandbox");
   if (opts.pastCreate) {
-    try { await runSbx(["rm", plan.name]); } catch (e) { log.warn(`sbx rm: ${(e as Error).message}`); }
+    try {
+      await runSbx(["rm", plan.name]);
+    } catch (e) {
+      log.warn(`sbx rm: ${(e as Error).message}`);
+    }
   }
   if (opts.pastWorktrees) {
-    try { await removeHostWorktrees(plan.name, plan.repos, { force: true }); }
-    catch (e) { log.warn(`worktree cleanup: ${(e as Error).message}`); }
+    try {
+      await removeHostWorktrees(plan.name, plan.repos, { force: true });
+    } catch (e) {
+      log.warn(`worktree cleanup: ${(e as Error).message}`);
+    }
   }
   const sb = homePaths().sandboxDir(plan.name);
   if (existsSync(sb)) rmSync(sb, { recursive: true, force: true });
   if (opts.pastRegistry) {
-    try { await removeEntry(plan.name); } catch (e) { log.warn(`registry cleanup: ${(e as Error).message}`); }
+    try {
+      await removeEntry(plan.name);
+    } catch (e) {
+      log.warn(`registry cleanup: ${(e as Error).message}`);
+    }
   }
 }
 
@@ -35,17 +50,26 @@ export async function runUp(flags: UpFlags): Promise<number> {
   try {
     plan = await buildUpPlan(flags);
   } catch (err) {
-    process.stderr.write(formatError(err) + "\n");
+    process.stderr.write(`${formatError(err)}\n`);
     return 1;
   }
 
   // Pre-flight: registry collision check before any disk changes.
   const existingEntry = await getEntry(plan.name);
   if (existingEntry && !plan.replace) {
-    process.stderr.write(formatError(new AgentboxError(
-      `Sandbox '${plan.name}' already exists in the registry`,
-      { fix: "Run `agentbox rm " + plan.name + "` first, or pass --replace to overwrite" },
-    )) + "\n");
+    process.stderr.write(
+      `${formatError(
+        new AgentboxError(
+          `Sandbox '${plan.name}' already exists in the registry`,
+          {
+            fix:
+              "Run `agentbox rm " +
+              plan.name +
+              "` first, or pass --replace to overwrite",
+          },
+        ),
+      )}\n`,
+    );
     return 1;
   }
 
@@ -53,10 +77,19 @@ export async function runUp(flags: UpFlags): Promise<number> {
   const sandboxDirPath = homePaths().sandboxDir(plan.name);
   if (existsSync(sandboxDirPath) && !plan.replace) {
     if (!existingEntry) {
-      process.stderr.write(formatError(new AgentboxError(
-        `Leftover sandbox state at ${sandboxDirPath} (likely from a failed prior run)`,
-        { fix: "Run `agentbox rm " + plan.name + " --force` to clean up, or pass --replace to overwrite" },
-      )) + "\n");
+      process.stderr.write(
+        `${formatError(
+          new AgentboxError(
+            `Leftover sandbox state at ${sandboxDirPath} (likely from a failed prior run)`,
+            {
+              fix:
+                "Run `agentbox rm " +
+                plan.name +
+                " --force` to clean up, or pass --replace to overwrite",
+            },
+          ),
+        )}\n`,
+      );
       return 1;
     }
   }
@@ -73,14 +106,27 @@ export async function runUp(flags: UpFlags): Promise<number> {
   // best-effort and idempotent — we always attempt them all.
   if (plan.replace) {
     log.info(`replace: tearing down existing state for ${plan.name}`);
-    try { await runSbx(["rm", plan.name]); } catch { /* sbx may not have it */ }
-    if (existingEntry) {
-      try { await removeEntry(plan.name); } catch { /* ignore */ }
+    try {
+      await runSbx(["rm", plan.name]);
+    } catch {
+      /* sbx may not have it */
     }
-    if (existsSync(sandboxDirPath)) rmSync(sandboxDirPath, { recursive: true, force: true });
+    if (existingEntry) {
+      try {
+        await removeEntry(plan.name);
+      } catch {
+        /* ignore */
+      }
+    }
+    if (existsSync(sandboxDirPath))
+      rmSync(sandboxDirPath, { recursive: true, force: true });
     for (const r of plan.repos) {
       if (r.source !== "local") continue;
-      try { await pruneWorktrees(r.path); } catch { /* ignore */ }
+      try {
+        await pruneWorktrees(r.path);
+      } catch {
+        /* ignore */
+      }
     }
   }
 
@@ -100,33 +146,51 @@ export async function runUp(flags: UpFlags): Promise<number> {
     // in-VM paths). This avoids the ~96 KB ARG_MAX cap of the previous
     // base64-in-shell transport and makes inject I/O bound by virtiofs, not
     // by exec invocations.
-    const stage = await log.phase("stage", () => stageInjection({
-      skillSources: plan.skillSources,
-      plugins: plan.plugins,
-      hooks: plan.config.hooks,
-      env: plan.config.env,
-      credentials: plan.claudeCredentials,
-      outDir: homePaths().injectDir(plan.name),
-    }));
+    const stage = await log.phase("stage", () =>
+      stageInjection({
+        skillSources: plan.skillSources,
+        plugins: plan.plugins,
+        hooks: plan.config.hooks,
+        env: plan.config.env,
+        credentials: plan.claudeCredentials,
+        outDir: homePaths().injectDir(plan.name),
+      }),
+    );
     // sbx create — past this point, rollback runs sbx rm
-    await log.phase("sbx create", async () => { await createSandbox(plan, { injectMount: stage.dir }); pastCreate = true; });
+    await log.phase("sbx create", async () => {
+      await createSandbox(plan, { injectMount: stage.dir });
+      pastCreate = true;
+    });
     await log.phase("inject", () => injectFiles(plan.name, stage.dir, "/"));
     // Lifecycle: post_create
-    await runLifecyclePhase("post_create", plan.name, plan.config.lifecycle?.post_create, log);
+    await runLifecyclePhase(
+      "post_create",
+      plan.name,
+      plan.config.lifecycle?.post_create,
+      log,
+    );
     // Clone git repos
     await log.phase("clone", () => cloneGitRepos(plan.name, plan.repos));
     // Lifecycle: pre_agent
-    await runLifecyclePhase("pre_agent", plan.name, plan.config.lifecycle?.pre_agent, log);
+    await runLifecyclePhase(
+      "pre_agent",
+      plan.name,
+      plan.config.lifecycle?.pre_agent,
+      log,
+    );
 
     // Registry write
-    await addEntry({
-      name: plan.name,
-      config_path: plan.configPath,
-      mode: plan.mode,
-      created_at: new Date().toISOString(),
-      sbx_sandbox_id: plan.name,
-      config_hash: plan.configHash,
-    }, { replace: plan.replace });
+    await addEntry(
+      {
+        name: plan.name,
+        config_path: plan.configPath,
+        mode: plan.mode,
+        created_at: new Date().toISOString(),
+        sbx_sandbox_id: plan.name,
+        config_hash: plan.configHash,
+      },
+      { replace: plan.replace },
+    );
     pastRegistry = true;
 
     log.info("up: bootstrap complete; launching agent");
@@ -145,7 +209,12 @@ export async function runUp(flags: UpFlags): Promise<number> {
     // on_stop
     const log2 = await createLogger(plan.name, { verbose: plan.verbose });
     try {
-      await runLifecyclePhase("on_stop", plan.name, plan.config.lifecycle?.on_stop, log2);
+      await runLifecyclePhase(
+        "on_stop",
+        plan.name,
+        plan.config.lifecycle?.on_stop,
+        log2,
+      );
     } finally {
       await log2.close();
     }
@@ -163,7 +232,7 @@ export async function runUp(flags: UpFlags): Promise<number> {
       await rollback(plan, log, { pastCreate, pastWorktrees, pastRegistry });
     }
     await log.close();
-    process.stderr.write(formatError(err) + "\n");
+    process.stderr.write(`${formatError(err)}\n`);
     return 1;
   }
 }

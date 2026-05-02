@@ -1,13 +1,16 @@
 import { basename } from "node:path";
-import { parseConfigFile } from "../../config/parse.ts";
-import { resolveRepos, type ResolvedRepo } from "../../config/resolve-repos.ts";
-import { resolveAllSkills } from "../../config/resolve-skills.ts";
-import { resolveAllPlugins, type ResolvedPlugin } from "../../config/resolve-plugins.ts";
-import { resolvePrompt } from "../../config/resolve-prompt.ts";
-import { runSbx } from "../../sbx/client.ts";
-import { AgentboxError } from "../../errors.ts";
 import { readHostClaudeCredentials } from "../../auth/host-credentials.ts";
+import { parseConfigFile } from "../../config/parse.ts";
+import {
+  type ResolvedPlugin,
+  resolveAllPlugins,
+} from "../../config/resolve-plugins.ts";
+import { resolvePrompt } from "../../config/resolve-prompt.ts";
+import { type ResolvedRepo, resolveRepos } from "../../config/resolve-repos.ts";
+import { resolveAllSkills } from "../../config/resolve-skills.ts";
 import type { AgentboxConfig } from "../../config/schema.ts";
+import { AgentboxError } from "../../errors.ts";
+import { runSbx } from "../../sbx/client.ts";
 import type { UpFlags } from "./flags.ts";
 
 export interface UpPlan {
@@ -27,7 +30,7 @@ export interface UpPlan {
   replace: boolean;
   verbose: boolean;
   authMode: "api_key" | "session";
-  claudeCredentials?: string;  // populated when authMode === "session"
+  claudeCredentials?: string; // populated when authMode === "session"
 }
 
 function deriveName(flags: UpFlags, cfg: AgentboxConfig): string {
@@ -38,7 +41,9 @@ function deriveName(flags: UpFlags, cfg: AgentboxConfig): string {
 }
 
 function ephemeralSuffix(): string {
-  return Math.random().toString(36).slice(2, 6) + Date.now().toString(36).slice(-3);
+  return (
+    Math.random().toString(36).slice(2, 6) + Date.now().toString(36).slice(-3)
+  );
 }
 
 async function configHash(path: string): Promise<string> {
@@ -57,7 +62,9 @@ export async function buildUpPlan(flags: UpFlags): Promise<UpPlan> {
 
   // Validate secrets — skip "anthropic" when using session auth
   if (cfg.secrets && cfg.secrets.length > 0) {
-    const requiredSecrets = cfg.secrets.filter((s) => !(s === "anthropic" && authMode === "session"));
+    const requiredSecrets = cfg.secrets.filter(
+      (s) => !(s === "anthropic" && authMode === "session"),
+    );
     if (requiredSecrets.length > 0) {
       const r = await runSbx(["secret", "ls", "-g"]);
       if (r.exitCode !== 0) {
@@ -65,7 +72,12 @@ export async function buildUpPlan(flags: UpFlags): Promise<UpPlan> {
           fix: "Verify sbx is installed and working: agentbox doctor",
         });
       }
-      const present = new Set(r.stdout.split("\n").map((s) => s.trim()).filter(Boolean));
+      const present = new Set(
+        r.stdout
+          .split("\n")
+          .map((s) => s.trim())
+          .filter(Boolean),
+      );
       for (const s of requiredSecrets) {
         if (!present.has(s)) {
           throw new AgentboxError(`secret not configured: ${s}`, {

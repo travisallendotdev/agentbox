@@ -4,16 +4,16 @@ import type { Repo } from "./schema.ts";
 
 export type ResolvedRepoLocal = {
   source: "local";
-  path: string;        // absolute
-  branch: string;      // resolved
-  name: string;        // basename
+  path: string; // absolute
+  branch: string; // resolved
+  name: string; // basename
 };
 export type ResolvedRepoGit = {
   source: "git";
   url: string;
   branch?: string;
   place: "workspace" | "vm";
-  name: string;        // derived from URL basename
+  name: string; // derived from URL basename
 };
 export type ResolvedRepo = ResolvedRepoLocal | ResolvedRepoGit;
 
@@ -28,7 +28,10 @@ function gitUrlBasename(url: string): string {
   return last.replace(/\.git$/, "");
 }
 
-export async function resolveRepos(repos: Repo[], sandboxName: string): Promise<ResolvedRepo[]> {
+export async function resolveRepos(
+  repos: Repo[],
+  sandboxName: string,
+): Promise<ResolvedRepo[]> {
   const out: ResolvedRepo[] = [];
   const seen = new Set<string>();
 
@@ -36,8 +39,10 @@ export async function resolveRepos(repos: Repo[], sandboxName: string): Promise<
     let resolved: ResolvedRepo;
     if (repo.source === "local") {
       const expanded = expandHome(repo.path);
-      if (!existsSync(expanded)) throw new Error(`Local repo path does not exist: ${repo.path}`);
-      if (!statSync(expanded).isDirectory()) throw new Error(`Local repo path is not a directory: ${repo.path}`);
+      if (!existsSync(expanded))
+        throw new Error(`Local repo path does not exist: ${repo.path}`);
+      if (!statSync(expanded).isDirectory())
+        throw new Error(`Local repo path is not a directory: ${repo.path}`);
       // Canonicalize symlinks: `git worktree add --relative-paths` resolves
       // them when computing the gitdir pointer, and the path we pass to `sbx
       // create` must match for the bind mount to land on the same in-VM path
@@ -45,7 +50,8 @@ export async function resolveRepos(repos: Repo[], sandboxName: string): Promise<
       // case that exposes this.)
       const abs = realpathSync(expanded);
       const gitDir = join(abs, ".git");
-      if (!existsSync(gitDir)) throw new Error(`Local repo path is not a git repo: ${repo.path}`);
+      if (!existsSync(gitDir))
+        throw new Error(`Local repo path is not a git repo: ${repo.path}`);
       resolved = {
         source: "local",
         path: abs,
@@ -62,7 +68,9 @@ export async function resolveRepos(repos: Repo[], sandboxName: string): Promise<
       };
     }
     if (seen.has(resolved.name)) {
-      throw new Error(`duplicate repo name '${resolved.name}' — use different paths/urls or restructure your config`);
+      throw new Error(
+        `duplicate repo name '${resolved.name}' — use different paths/urls or restructure your config`,
+      );
     }
     seen.add(resolved.name);
     out.push(resolved);

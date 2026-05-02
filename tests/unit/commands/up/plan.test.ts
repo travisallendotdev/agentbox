@@ -1,9 +1,9 @@
-import { test, expect, beforeEach, afterEach } from "bun:test";
-import { buildUpPlan } from "../../../../src/commands/up/plan.ts";
-import { mkdtempSync, writeFileSync, mkdirSync } from "node:fs";
+import { afterEach, beforeEach, expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { spawnSync } from "node:child_process";
+import { buildUpPlan } from "../../../../src/commands/up/plan.ts";
 
 let workdir: string;
 const origCredsOverride = process.env.AGENTBOX_CLAUDE_CREDENTIALS_FILE;
@@ -31,7 +31,8 @@ esac
   process.env.AGENTBOX_SBX_BIN = sbx;
 });
 afterEach(() => {
-  if (origCredsOverride === undefined) delete process.env.AGENTBOX_CLAUDE_CREDENTIALS_FILE;
+  if (origCredsOverride === undefined)
+    delete process.env.AGENTBOX_CLAUDE_CREDENTIALS_FILE;
   else process.env.AGENTBOX_CLAUDE_CREDENTIALS_FILE = origCredsOverride;
 });
 
@@ -45,28 +46,55 @@ function makeRepo(name: string): string {
 test("derives sandbox name from filename when not in YAML or flag", async () => {
   const cfg = join(workdir, "project-x.yaml");
   writeFileSync(cfg, "mode: ephemeral\n");
-  const plan = await buildUpPlan({ configPath: cfg, replace: false, keep: false, keepOnError: false, verbose: false });
+  const plan = await buildUpPlan({
+    configPath: cfg,
+    replace: false,
+    keep: false,
+    keepOnError: false,
+    verbose: false,
+  });
   expect(plan.name).toMatch(/^project-x-[a-z0-9]+$/); // ephemeral suffix
 });
 
 test("--name flag overrides YAML name and filename", async () => {
   const cfg = join(workdir, "from-file.yaml");
   writeFileSync(cfg, "mode: durable\nname: in-yaml\n");
-  const plan = await buildUpPlan({ configPath: cfg, name: "from-flag", replace: false, keep: false, keepOnError: false, verbose: false });
+  const plan = await buildUpPlan({
+    configPath: cfg,
+    name: "from-flag",
+    replace: false,
+    keep: false,
+    keepOnError: false,
+    verbose: false,
+  });
   expect(plan.name).toBe("from-flag");
 });
 
 test("ephemeral mode appends a suffix to avoid collisions", async () => {
   const cfg = join(workdir, "e.yaml");
   writeFileSync(cfg, "mode: ephemeral\nname: x\n");
-  const plan = await buildUpPlan({ configPath: cfg, replace: false, keep: false, keepOnError: false, verbose: false });
+  const plan = await buildUpPlan({
+    configPath: cfg,
+    replace: false,
+    keep: false,
+    keepOnError: false,
+    verbose: false,
+  });
   expect(plan.name).toMatch(/^x-[a-z0-9]+$/);
 });
 
 test("validation fails when a required secret is missing", async () => {
   const cfg = join(workdir, "s.yaml");
   writeFileSync(cfg, "mode: durable\nname: s\nsecrets: [anthropic, openai]\n");
-  await expect(buildUpPlan({ configPath: cfg, replace: false, keep: false, keepOnError: false, verbose: false })).rejects.toThrow(/openai/);
+  await expect(
+    buildUpPlan({
+      configPath: cfg,
+      replace: false,
+      keep: false,
+      keepOnError: false,
+      verbose: false,
+    }),
+  ).rejects.toThrow(/openai/);
 });
 
 test("plan resolves repos and skills", async () => {
@@ -76,7 +104,13 @@ test("plan resolves repos and skills", async () => {
     cfg,
     `mode: durable\nname: foo\nrepos:\n  - source: local\n    path: ${repo}\nskills: [coding-standards]\n`,
   );
-  const plan = await buildUpPlan({ configPath: cfg, replace: false, keep: false, keepOnError: false, verbose: false });
+  const plan = await buildUpPlan({
+    configPath: cfg,
+    replace: false,
+    keep: false,
+    keepOnError: false,
+    verbose: false,
+  });
   const r0 = plan.repos[0]!;
   expect(r0.source).toBe("local");
   expect(r0.name).toBe("repo-a");
@@ -91,12 +125,25 @@ test("auth: session skips anthropic secret validation and loads credentials", as
 
   // Make the fake sbx return NO secrets — anthropic missing — but auth: session means we don't check
   const sbx = join(workdir, "fake-sbx-empty.sh");
-  writeFileSync(sbx, `#!/bin/sh\ncase "$1" in secret) printf '' ;; *) exit 0 ;; esac\n`, { mode: 0o755 });
+  writeFileSync(
+    sbx,
+    `#!/bin/sh\ncase "$1" in secret) printf '' ;; *) exit 0 ;; esac\n`,
+    { mode: 0o755 },
+  );
   process.env.AGENTBOX_SBX_BIN = sbx;
 
   const cfg = join(workdir, "session.yaml");
-  writeFileSync(cfg, "mode: durable\nname: sess\nauth: session\nsecrets: [anthropic]\n");
-  const plan = await buildUpPlan({ configPath: cfg, replace: false, keep: false, keepOnError: false, verbose: false });
+  writeFileSync(
+    cfg,
+    "mode: durable\nname: sess\nauth: session\nsecrets: [anthropic]\n",
+  );
+  const plan = await buildUpPlan({
+    configPath: cfg,
+    replace: false,
+    keep: false,
+    keepOnError: false,
+    verbose: false,
+  });
   expect(plan.authMode).toBe("session");
   expect(plan.claudeCredentials).toContain("oauth_token");
 });
@@ -104,10 +151,21 @@ test("auth: session skips anthropic secret validation and loads credentials", as
 test("auth: api_key (default) still validates anthropic secret", async () => {
   // empty fake → anthropic missing
   const sbx = join(workdir, "fake-sbx-empty.sh");
-  writeFileSync(sbx, `#!/bin/sh\ncase "$1" in secret) printf '' ;; *) exit 0 ;; esac\n`, { mode: 0o755 });
+  writeFileSync(
+    sbx,
+    `#!/bin/sh\ncase "$1" in secret) printf '' ;; *) exit 0 ;; esac\n`,
+    { mode: 0o755 },
+  );
   process.env.AGENTBOX_SBX_BIN = sbx;
   const cfg = join(workdir, "key.yaml");
   writeFileSync(cfg, "mode: durable\nname: k\nsecrets: [anthropic]\n");
-  await expect(buildUpPlan({ configPath: cfg, replace: false, keep: false, keepOnError: false, verbose: false }))
-    .rejects.toThrow(/anthropic/);
+  await expect(
+    buildUpPlan({
+      configPath: cfg,
+      replace: false,
+      keep: false,
+      keepOnError: false,
+      verbose: false,
+    }),
+  ).rejects.toThrow(/anthropic/);
 });

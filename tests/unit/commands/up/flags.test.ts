@@ -1,4 +1,4 @@
-import { test, expect } from "bun:test";
+import { expect, test } from "bun:test";
 import { parseUpFlags } from "../../../../src/commands/up/flags.ts";
 
 test("parses positional config path and flags", () => {
@@ -28,5 +28,7 @@ test("--name with no value throws AgentboxError", () => {
 });
 
 test("--name followed by a flag throws (does not silently consume the flag)", () => {
-  expect(() => parseUpFlags(["x.yaml", "--name", "--replace"])).toThrow(/--name requires/i);
+  expect(() => parseUpFlags(["x.yaml", "--name", "--replace"])).toThrow(
+    /--name requires/i,
+  );
 });

@@ -30,18 +30,34 @@ export function parseUpFlags(args: string[]): UpFlags {
         i++;
         break;
       }
-      case "--replace": replace = true; break;
-      case "--keep": keep = true; break;
-      case "--keep-on-error": keepOnError = true; break;
+      case "--replace":
+        replace = true;
+        break;
+      case "--keep":
+        keep = true;
+        break;
+      case "--keep-on-error":
+        keepOnError = true;
+        break;
       case "--verbose":
       case "-v":
-        verbose = true; break;
+        verbose = true;
+        break;
       default:
-        if (a.startsWith("--")) throw new AgentboxError(`unknown flag: ${a}`, { fix: "Run `agentbox --help` for usage" });
-        if (configPath !== undefined) throw new AgentboxError(`unexpected positional argument: ${a}`, { fix: "Only one positional config-path argument is accepted" });
+        if (a.startsWith("--"))
+          throw new AgentboxError(`unknown flag: ${a}`, {
+            fix: "Run `agentbox --help` for usage",
+          });
+        if (configPath !== undefined)
+          throw new AgentboxError(`unexpected positional argument: ${a}`, {
+            fix: "Only one positional config-path argument is accepted",
+          });
         configPath = a;
     }
   }
-  if (configPath === undefined) throw new AgentboxError("config path is required", { fix: "agentbox up <path>.yaml" });
+  if (configPath === undefined)
+    throw new AgentboxError("config path is required", {
+      fix: "agentbox up <path>.yaml",
+    });
   return { configPath, name, replace, keep, keepOnError, verbose };
 }

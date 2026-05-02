@@ -1,11 +1,17 @@
-import { mkdirSync, writeFileSync, cpSync, existsSync, rmSync } from "node:fs";
-import { mkdtempSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { HookConfig } from "../../config/schema.ts";
-import type { ResolvedPlugin } from "../../config/resolve-plugins.ts";
-import { readHostExtraMarketplaces } from "../../config/host-plugin-settings.ts";
 import { buildSandboxGitconfig } from "../../config/host-gitconfig.ts";
+import { readHostExtraMarketplaces } from "../../config/host-plugin-settings.ts";
+import type { ResolvedPlugin } from "../../config/resolve-plugins.ts";
+import type { HookConfig } from "../../config/schema.ts";
 
 export interface StageInputs {
   skillSources: Record<string, string>;
@@ -64,7 +70,13 @@ export async function stageInjection(inputs: StageInputs): Promise<Staging> {
   if (inputs.plugins.length > 0) {
     const hostMarketplaces = readHostExtraMarketplaces();
     for (const p of inputs.plugins) {
-      const dst = join(dir, "home/agent/.claude/plugins/cache", p.marketplace, p.name, p.version);
+      const dst = join(
+        dir,
+        "home/agent/.claude/plugins/cache",
+        p.marketplace,
+        p.name,
+        p.version,
+      );
       mkdirSync(dst, { recursive: true });
       copyPluginTree(p.path, dst);
       enabledPlugins[`${p.name}@${p.marketplace}`] = true;
@@ -82,9 +94,14 @@ export async function stageInjection(inputs: StageInputs): Promise<Staging> {
   mkdirSync(claudeDir, { recursive: true });
   const settings: Record<string, unknown> = {};
   if (inputs.hooks) settings.hooks = inputs.hooks;
-  if (Object.keys(enabledPlugins).length > 0) settings.enabledPlugins = enabledPlugins;
-  if (Object.keys(extraKnownMarketplaces).length > 0) settings.extraKnownMarketplaces = extraKnownMarketplaces;
-  writeFileSync(join(claudeDir, "settings.json"), JSON.stringify(settings, null, 2) + "\n");
+  if (Object.keys(enabledPlugins).length > 0)
+    settings.enabledPlugins = enabledPlugins;
+  if (Object.keys(extraKnownMarketplaces).length > 0)
+    settings.extraKnownMarketplaces = extraKnownMarketplaces;
+  writeFileSync(
+    join(claudeDir, "settings.json"),
+    `${JSON.stringify(settings, null, 2)}\n`,
+  );
   // credentials (session auth)
   if (inputs.credentials) {
     writeFileSync(join(claudeDir, ".credentials.json"), inputs.credentials);
@@ -97,9 +114,9 @@ export async function stageInjection(inputs: StageInputs): Promise<Staging> {
   // /etc/sandbox-persistent.sh
   const etcDir = join(dir, "etc");
   mkdirSync(etcDir, { recursive: true });
-  const envLines = Object.entries(inputs.env ?? {})
+  const envLines = `${Object.entries(inputs.env ?? {})
     .map(([k, v]) => `export ${k}=${shSingleQuote(v)}`)
-    .join("\n") + "\n";
+    .join("\n")}\n`;
   writeFileSync(join(etcDir, "sandbox-persistent.sh"), envLines);
   return { dir };
 }

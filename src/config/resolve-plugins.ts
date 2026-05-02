@@ -1,5 +1,5 @@
-import { join, isAbsolute, basename } from "node:path";
 import { existsSync, readdirSync, statSync } from "node:fs";
+import { basename, isAbsolute, join } from "node:path";
 
 export interface ResolvedPlugin {
   /** Marketplace name (synthetic `local` for path refs). */
@@ -44,15 +44,26 @@ function pickVersion(pluginDir: string): string | null {
   return versions[versions.length - 1] ?? null;
 }
 
-function findPluginInMarketplace(marketplace: string, pluginName: string): { version: string; path: string } | null {
-  const pluginDir = join(claudeHome(), "plugins", "cache", marketplace, pluginName);
+function findPluginInMarketplace(
+  marketplace: string,
+  pluginName: string,
+): { version: string; path: string } | null {
+  const pluginDir = join(
+    claudeHome(),
+    "plugins",
+    "cache",
+    marketplace,
+    pluginName,
+  );
   if (!existsSync(pluginDir)) return null;
   const version = pickVersion(pluginDir);
   if (!version) return null;
   return { version, path: join(pluginDir, version) };
 }
 
-function findPluginAcrossMarketplaces(pluginName: string): { marketplace: string; version: string; path: string } | null {
+function findPluginAcrossMarketplaces(
+  pluginName: string,
+): { marketplace: string; version: string; path: string } | null {
   const cacheRoot = join(claudeHome(), "plugins", "cache");
   if (!existsSync(cacheRoot)) return null;
   for (const marketplace of listDirs(cacheRoot)) {
@@ -67,8 +78,14 @@ export async function resolvePlugin(ref: string): Promise<ResolvedPlugin> {
   if (ref.startsWith("/") || ref.startsWith("~/") || isAbsolute(ref)) {
     const expanded = expandHome(ref);
     if (!existsSync(expanded)) throw new Error(`Plugin path not found: ${ref}`);
-    if (!statSync(expanded).isDirectory()) throw new Error(`Plugin path is not a directory: ${ref}`);
-    return { marketplace: "local", name: basename(expanded), version: "local", path: expanded };
+    if (!statSync(expanded).isDirectory())
+      throw new Error(`Plugin path is not a directory: ${ref}`);
+    return {
+      marketplace: "local",
+      name: basename(expanded),
+      version: "local",
+      path: expanded,
+    };
   }
   // Marketplace-qualified form: <marketplace>:<plugin>
   if (ref.includes(":")) {
@@ -81,11 +98,19 @@ export async function resolvePlugin(ref: string): Promise<ResolvedPlugin> {
   }
   // Bare name — search all marketplaces
   const found = findPluginAcrossMarketplaces(ref);
-  if (!found) throw new Error(`Plugin not found in any cached marketplace: ${ref}`);
-  return { marketplace: found.marketplace, name: ref, version: found.version, path: found.path };
+  if (!found)
+    throw new Error(`Plugin not found in any cached marketplace: ${ref}`);
+  return {
+    marketplace: found.marketplace,
+    name: ref,
+    version: found.version,
+    path: found.path,
+  };
 }
 
-export async function resolveAllPlugins(refs: string[]): Promise<ResolvedPlugin[]> {
+export async function resolveAllPlugins(
+  refs: string[],
+): Promise<ResolvedPlugin[]> {
   const out: ResolvedPlugin[] = [];
   for (const ref of refs) out.push(await resolvePlugin(ref));
   return out;

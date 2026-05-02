@@ -1,9 +1,9 @@
-import { test, expect, beforeEach } from "bun:test";
-import { runUp } from "../../src/commands/up/run.ts";
-import { mkdtempSync, mkdirSync, writeFileSync, existsSync } from "node:fs";
+import { beforeEach, expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { spawnSync } from "node:child_process";
+import { runUp } from "../../src/commands/up/run.ts";
 import { getEntry } from "../../src/registry/registry.ts";
 
 let workdir: string;
@@ -55,17 +55,25 @@ test("happy path: durable mode, one local repo, registers and reports success", 
     cfg,
     `mode: durable\nname: foo\nrepos:\n  - source: local\n    path: ${repo}\nsecrets: [anthropic]\nskills: [coding-standards]\n`,
   );
-  const code = await runUp({ configPath: cfg, replace: false, keep: false, keepOnError: false, verbose: false });
+  const code = await runUp({
+    configPath: cfg,
+    replace: false,
+    keep: false,
+    keepOnError: false,
+    verbose: false,
+  });
   expect(code).toBe(0);
   expect(await getEntry("foo")).toBeDefined();
   const repoBaseName = repo.split("/").pop();
-  expect(existsSync(join(workdir, "sandboxes/foo/repos/" + repoBaseName))).toBe(true);
+  expect(existsSync(join(workdir, `sandboxes/foo/repos/${repoBaseName}`))).toBe(
+    true,
+  );
   // sbx create should have received the staging dir as a `:ro` extra workspace
   // — that's the bind-mount transport we use for inject. Verify the arg is present.
   const sbxLog = await Bun.file(join(workdir, "sbx.log")).text();
   const createLine = sbxLog.split("\n").find((l) => l.startsWith("create "));
   expect(createLine).toBeDefined();
-  expect(createLine).toContain(join(workdir, "sandboxes/foo/inject") + ":ro");
+  expect(createLine).toContain(`${join(workdir, "sandboxes/foo/inject")}:ro`);
   // Each local-source repo's `.git` should be mounted (rw is sbx's default)
   // so the worktree's relative gitdir pointer resolves inside the VM.
   expect(createLine).toContain(join(repo, ".git"));
@@ -92,7 +100,13 @@ esac
     cfg,
     `mode: durable\nname: foo\nrepos:\n  - source: local\n    path: ${repo}\nsecrets: [anthropic]\n`,
   );
-  const code = await runUp({ configPath: cfg, replace: false, keep: false, keepOnError: false, verbose: false });
+  const code = await runUp({
+    configPath: cfg,
+    replace: false,
+    keep: false,
+    keepOnError: false,
+    verbose: false,
+  });
   expect(code).not.toBe(0);
   // Critical: host worktree should NOT leak — git worktree list on the source repo should not have it
   const out = await Bun.$`git -C ${repo} worktree list`.text();
@@ -112,7 +126,13 @@ test("pre-flight detects existing sandbox dir from a failed prior run", async ()
     cfg,
     `mode: durable\nname: foo\nrepos:\n  - source: local\n    path: ${repo}\nsecrets: [anthropic]\n`,
   );
-  const code = await runUp({ configPath: cfg, replace: false, keep: false, keepOnError: false, verbose: false });
+  const code = await runUp({
+    configPath: cfg,
+    replace: false,
+    keep: false,
+    keepOnError: false,
+    verbose: false,
+  });
   expect(code).toBe(1);
   // The leftover dir should still exist (we didn't clean it up — user told us to abort)
   expect(existsSync(sandboxDir)).toBe(true);
@@ -129,7 +149,13 @@ test("--replace overwrites an existing sandbox dir", async () => {
     cfg,
     `mode: durable\nname: foo\nrepos:\n  - source: local\n    path: ${repo}\nsecrets: [anthropic]\n`,
   );
-  const code = await runUp({ configPath: cfg, replace: true, keep: false, keepOnError: false, verbose: false });
+  const code = await runUp({
+    configPath: cfg,
+    replace: true,
+    keep: false,
+    keepOnError: false,
+    verbose: false,
+  });
   expect(code).toBe(0);
 });
 
@@ -145,11 +171,19 @@ test("--replace tears down existing state before recreating", async () => {
     cfg,
     `mode: durable\nname: foo\nrepos:\n  - source: local\n    path: ${repo}\nsecrets: [anthropic]\n`,
   );
-  const code = await runUp({ configPath: cfg, replace: true, keep: false, keepOnError: false, verbose: false });
+  const code = await runUp({
+    configPath: cfg,
+    replace: true,
+    keep: false,
+    keepOnError: false,
+    verbose: false,
+  });
   expect(code).toBe(0);
   // The sandbox should now exist with the new state
   const repoBaseName = repo.split("/").pop();
-  expect(existsSync(join(workdir, "sandboxes/foo/repos/" + repoBaseName))).toBe(true);
+  expect(existsSync(join(workdir, `sandboxes/foo/repos/${repoBaseName}`))).toBe(
+    true,
+  );
 });
 
 test("rollback on injection failure: registry not written, parent dir cleaned", async () => {
@@ -182,7 +216,13 @@ esac
     cfg,
     `mode: durable\nname: foo\nrepos:\n  - source: local\n    path: ${repo}\nsecrets: [anthropic]\n`,
   );
-  const code = await runUp({ configPath: cfg, replace: false, keep: false, keepOnError: false, verbose: false });
+  const code = await runUp({
+    configPath: cfg,
+    replace: false,
+    keep: false,
+    keepOnError: false,
+    verbose: false,
+  });
   expect(code).not.toBe(0);
   expect(await getEntry("foo")).toBeUndefined();
   expect(existsSync(join(workdir, "sandboxes/foo"))).toBe(false);

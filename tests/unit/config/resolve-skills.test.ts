@@ -1,11 +1,18 @@
-import { test, expect, beforeEach, afterEach } from "bun:test";
-import { resolveSkill, resolveAllSkills } from "../../../src/config/resolve-skills.ts";
+import { afterEach, beforeEach, expect, test } from "bun:test";
 import { join } from "node:path";
+import {
+  resolveAllSkills,
+  resolveSkill,
+} from "../../../src/config/resolve-skills.ts";
 
 const SKILLS_HOME = join(import.meta.dir, "../../fixtures/skills-home");
 const orig = process.env.CLAUDE_HOME;
-beforeEach(() => { process.env.CLAUDE_HOME = SKILLS_HOME; });
-afterEach(() => { process.env.CLAUDE_HOME = orig; });
+beforeEach(() => {
+  process.env.CLAUDE_HOME = SKILLS_HOME;
+});
+afterEach(() => {
+  process.env.CLAUDE_HOME = orig;
+});
 
 test("resolves a bare skill name from ~/.claude/skills", async () => {
   const r = await resolveSkill("coding-standards");
@@ -31,11 +38,16 @@ test("resolves a ~-prefixed path", async () => {
 });
 
 test("missing skill produces a clear error", async () => {
-  await expect(resolveSkill("does-not-exist")).rejects.toThrow(/does-not-exist/);
+  await expect(resolveSkill("does-not-exist")).rejects.toThrow(
+    /does-not-exist/,
+  );
 });
 
 test("resolveAllSkills returns map name → path", async () => {
-  const r = await resolveAllSkills(["coding-standards", "superpowers:brainstorming"]);
+  const r = await resolveAllSkills([
+    "coding-standards",
+    "superpowers:brainstorming",
+  ]);
   expect(r["coding-standards"]).toContain("coding-standards");
   expect(r["superpowers:brainstorming"]).toContain("brainstorming");
 });

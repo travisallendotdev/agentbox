@@ -1,9 +1,12 @@
-import { test, expect, beforeEach } from "bun:test";
-import { createHostWorktrees, removeHostWorktrees } from "../../../../src/commands/up/worktrees.ts";
-import { mkdtempSync, mkdirSync, existsSync } from "node:fs";
+import { beforeEach, expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
+import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { spawnSync } from "node:child_process";
+import {
+  createHostWorktrees,
+  removeHostWorktrees,
+} from "../../../../src/commands/up/worktrees.ts";
 
 let workdir: string;
 beforeEach(() => {
@@ -34,7 +37,12 @@ test("rolls back partial worktrees on later failure", async () => {
   await expect(
     createHostWorktrees("bar", [
       { source: "local", path: r1, branch: "agentbox/bar", name: "a" },
-      { source: "local", path: "/nonexistent/path", branch: "agent/x", name: "b" },
+      {
+        source: "local",
+        path: "/nonexistent/path",
+        branch: "agent/x",
+        name: "b",
+      },
     ]),
   ).rejects.toThrow();
   expect(existsSync(join(workdir, "sandboxes/bar/repos/a"))).toBe(false);
@@ -46,7 +54,11 @@ test("removeHostWorktrees deletes worktrees", async () => {
   await createHostWorktrees("baz", [
     { source: "local", path: r1, branch: "agentbox/baz", name: "a" },
   ]);
-  await removeHostWorktrees("baz", [{ source: "local", path: r1, branch: "agentbox/baz", name: "a" }], { force: false });
+  await removeHostWorktrees(
+    "baz",
+    [{ source: "local", path: r1, branch: "agentbox/baz", name: "a" }],
+    { force: false },
+  );
   expect(existsSync(join(workdir, "sandboxes/baz/repos/a"))).toBe(false);
   expect(existsSync(join(workdir, "sandboxes/baz/repos"))).toBe(false);
 });
@@ -60,9 +72,11 @@ test("removeHostWorktrees handles a deleted source repo gracefully", async () =>
   const { rmSync } = await import("node:fs");
   rmSync(r1, { recursive: true, force: true });
   // removeHostWorktrees should still clean up the worktree dir
-  await removeHostWorktrees("gone", [
-    { source: "local", path: r1, branch: "agentbox/gone", name: "a" },
-  ], { force: false });
+  await removeHostWorktrees(
+    "gone",
+    [{ source: "local", path: r1, branch: "agentbox/gone", name: "a" }],
+    { force: false },
+  );
   expect(existsSync(join(workdir, "sandboxes/gone/repos/a"))).toBe(false);
   expect(existsSync(join(workdir, "sandboxes/gone/repos"))).toBe(false);
 });

@@ -1,5 +1,5 @@
-import { join, isAbsolute } from "node:path";
 import { existsSync, readdirSync, statSync } from "node:fs";
+import { isAbsolute, join } from "node:path";
 
 function claudeHome(): string {
   if (process.env.CLAUDE_HOME) return process.env.CLAUDE_HOME;
@@ -17,7 +17,10 @@ function expandHome(p: string): string {
   return p;
 }
 
-function findInPluginCache(pluginName: string, skillName: string): string | null {
+function findInPluginCache(
+  pluginName: string,
+  skillName: string,
+): string | null {
   const cacheRoot = join(claudeHome(), "plugins", "cache");
   if (!existsSync(cacheRoot)) return null;
   for (const marketplace of readdirSync(cacheRoot)) {
@@ -26,7 +29,8 @@ function findInPluginCache(pluginName: string, skillName: string): string | null
     // pluginDir/<version>/skills/<skillName>
     for (const version of readdirSync(pluginDir)) {
       const candidate = join(pluginDir, version, "skills", skillName);
-      if (existsSync(candidate) && statSync(candidate).isDirectory()) return candidate;
+      if (existsSync(candidate) && statSync(candidate).isDirectory())
+        return candidate;
     }
   }
   return null;
@@ -37,7 +41,8 @@ export async function resolveSkill(ref: string): Promise<string> {
   if (ref.startsWith("/") || ref.startsWith("~/") || isAbsolute(ref)) {
     const expanded = expandHome(ref);
     if (!existsSync(expanded)) throw new Error(`Skill path not found: ${ref}`);
-    if (!statSync(expanded).isDirectory()) throw new Error(`Skill path is not a directory: ${ref}`);
+    if (!statSync(expanded).isDirectory())
+      throw new Error(`Skill path is not a directory: ${ref}`);
     return expanded;
   }
   // Plugin form: <plugin>:<skill>
@@ -51,12 +56,16 @@ export async function resolveSkill(ref: string): Promise<string> {
   }
   // Bare name → ~/.claude/skills/<name>
   const candidate = join(claudeHome(), "skills", ref);
-  if (!existsSync(candidate)) throw new Error(`Skill not found in ${claudeHome()}/skills: ${ref}`);
-  if (!statSync(candidate).isDirectory()) throw new Error(`Skill is not a directory: ${ref}`);
+  if (!existsSync(candidate))
+    throw new Error(`Skill not found in ${claudeHome()}/skills: ${ref}`);
+  if (!statSync(candidate).isDirectory())
+    throw new Error(`Skill is not a directory: ${ref}`);
   return candidate;
 }
 
-export async function resolveAllSkills(refs: string[]): Promise<Record<string, string>> {
+export async function resolveAllSkills(
+  refs: string[],
+): Promise<Record<string, string>> {
   const out: Record<string, string> = {};
   for (const ref of refs) out[ref] = await resolveSkill(ref);
   return out;

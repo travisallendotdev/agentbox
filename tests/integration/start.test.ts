@@ -1,9 +1,9 @@
-import { test, expect, beforeEach } from "bun:test";
-import { start } from "../../src/commands/start.ts";
-import { addEntry } from "../../src/registry/registry.ts";
+import { beforeEach, expect, test } from "bun:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { start } from "../../src/commands/start.ts";
+import { addEntry } from "../../src/registry/registry.ts";
 
 let workdir: string;
 beforeEach(() => {
@@ -13,7 +13,9 @@ beforeEach(() => {
 
 function fakeSbx(logFile: string): string {
   const p = join(workdir, "fake-sbx.sh");
-  writeFileSync(p, `#!/bin/sh\necho "$@" >> ${logFile}\nexit 0\n`, { mode: 0o755 });
+  writeFileSync(p, `#!/bin/sh\necho "$@" >> ${logFile}\nexit 0\n`, {
+    mode: 0o755,
+  });
   return p;
 }
 

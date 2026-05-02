@@ -12,7 +12,7 @@ export class AgentboxError extends Error {
     this.name = "AgentboxError";
     this.fix = opts.fix;
     this.context = opts.context;
-    if (opts.cause) (this as any).cause = opts.cause;
+    if (opts.cause) (this as unknown as { cause: unknown }).cause = opts.cause;
   }
 }
 
@@ -20,7 +20,8 @@ export function formatError(e: unknown): string {
   if (e instanceof AgentboxError) {
     const lines = [`✗ ${e.message}`];
     if (e.context) {
-      for (const [k, v] of Object.entries(e.context)) lines.push(`  ${k}: ${v}`);
+      for (const [k, v] of Object.entries(e.context))
+        lines.push(`  ${k}: ${v}`);
     }
     if (e.fix) lines.push(`  Fix: ${e.fix}`);
     return lines.join("\n");

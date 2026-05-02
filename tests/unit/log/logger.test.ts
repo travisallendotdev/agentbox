@@ -1,8 +1,8 @@
-import { test, expect, beforeEach } from "bun:test";
-import { createLogger } from "../../../src/log/logger.ts";
+import { beforeEach, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createLogger } from "../../../src/log/logger.ts";
 
 beforeEach(() => {
   process.env.AGENTBOX_HOME = mkdtempSync(join(tmpdir(), "agbx-log-"));

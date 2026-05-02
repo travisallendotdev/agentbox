@@ -1,11 +1,15 @@
-import { test, expect, beforeEach } from "bun:test";
-import {
-  ensureBranch, addWorktree, removeWorktree, listWorktrees, pruneWorktrees,
-} from "../../../src/git/worktree.ts";
-import { mkdtempSync, realpathSync, mkdirSync, readFileSync } from "node:fs";
+import { expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { spawnSync } from "node:child_process";
+import {
+  addWorktree,
+  ensureBranch,
+  listWorktrees,
+  pruneWorktrees,
+  removeWorktree,
+} from "../../../src/git/worktree.ts";
 
 function makeRepo(): string {
   const dir = mkdtempSync(join(tmpdir(), "agbx-gw-"));
@@ -31,7 +35,7 @@ test("addWorktree creates a working tree at the given path on the given branch",
   const r = makeRepo();
   const wtDir = mkdtempSync(join(tmpdir(), "agbx-wt-"));
   const wt = join(wtDir, "work");
-  const wtReal = realpathSync(wtDir) + "/work"; // resolve symlinks like /tmp -> /private/tmp
+  const wtReal = `${realpathSync(wtDir)}/work`; // resolve symlinks like /tmp -> /private/tmp
   await ensureBranch(r, "agentbox/foo");
   await addWorktree(r, wt, "agentbox/foo");
   const list = await listWorktrees(r);
@@ -55,7 +59,7 @@ test("removeWorktree removes a worktree", async () => {
   const r = makeRepo();
   const wtDir = mkdtempSync(join(tmpdir(), "agbx-wt-"));
   const wt = join(wtDir, "work");
-  const wtReal = realpathSync(wtDir) + "/work";
+  const wtReal = `${realpathSync(wtDir)}/work`;
   await ensureBranch(r, "agentbox/foo");
   await addWorktree(r, wt, "agentbox/foo");
   await removeWorktree(r, wt);
@@ -67,7 +71,7 @@ test("removeWorktree --force removes a dirty worktree", async () => {
   const r = makeRepo();
   const wtDir = mkdtempSync(join(tmpdir(), "agbx-wt-"));
   const wt = join(wtDir, "work");
-  const wtReal = realpathSync(wtDir) + "/work";
+  const wtReal = `${realpathSync(wtDir)}/work`;
   await ensureBranch(r, "agentbox/foo");
   await addWorktree(r, wt, "agentbox/foo");
   spawnSync("sh", ["-c", `echo dirty > ${wt}/x.txt`]);
@@ -81,7 +85,7 @@ test("pruneWorktrees removes worktrees whose disk path is gone", async () => {
   const r = makeRepo();
   const wtBase = mkdtempSync(join(tmpdir(), "agbx-prune-"));
   const wt = join(wtBase, "work");
-  const wtReal = realpathSync(wtBase) + "/work"; // resolve symlinks like /tmp -> /private/tmp
+  const wtReal = `${realpathSync(wtBase)}/work`; // resolve symlinks like /tmp -> /private/tmp
   mkdirSync(wt, { recursive: true }); // create dir so addWorktree can place it
   await ensureBranch(r, "agentbox/p");
   await addWorktree(r, wt, "agentbox/p");

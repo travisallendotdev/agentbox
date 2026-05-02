@@ -1,9 +1,9 @@
-import { test, expect, beforeEach } from "bun:test";
-import { resolveRepos } from "../../../src/config/resolve-repos.ts";
+import { expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
 import { mkdtempSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { spawnSync } from "node:child_process";
+import { resolveRepos } from "../../../src/config/resolve-repos.ts";
 
 function makeRepo(): string {
   const dir = mkdtempSync(join(tmpdir(), "agbx-repo-"));
@@ -14,10 +14,7 @@ function makeRepo(): string {
 
 test("local repo: defaults branch to agentbox/<name>", async () => {
   const dir = makeRepo();
-  const r = await resolveRepos(
-    [{ source: "local", path: dir }],
-    "my-sandbox",
-  );
+  const r = await resolveRepos([{ source: "local", path: dir }], "my-sandbox");
   // Path is canonicalized via realpath so symlinks (e.g. /tmp → /private/tmp
   // on macOS) match what `git worktree add --relative-paths` records.
   expect(r[0]).toMatchObject({
@@ -33,7 +30,9 @@ test("local repo: keeps explicit branch", async () => {
     [{ source: "local", path: dir, branch: "agent/x" }],
     "my-sandbox",
   );
-  expect(r[0] && r[0].source === "local" ? r[0].branch : undefined).toBe("agent/x");
+  expect(r[0] && r[0].source === "local" ? r[0].branch : undefined).toBe(
+    "agent/x",
+  );
 });
 
 test("local repo: rejects non-git path", async () => {
@@ -54,7 +53,11 @@ test("git repo: defaults place to workspace", async () => {
     [{ source: "git", url: "https://x/y.git" }],
     "n",
   );
-  expect(r[0]).toMatchObject({ source: "git", url: "https://x/y.git", place: "workspace" });
+  expect(r[0]).toMatchObject({
+    source: "git",
+    url: "https://x/y.git",
+    place: "workspace",
+  });
 });
 
 test("repo name is computed from path/url basename", async () => {

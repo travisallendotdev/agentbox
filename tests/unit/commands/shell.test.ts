@@ -1,4 +1,4 @@
-import { test, expect } from "bun:test";
+import { expect, test } from "bun:test";
 import { shell } from "../../../src/commands/shell.ts";
 
 test("shell errors when name is missing", async () => {

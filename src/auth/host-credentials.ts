@@ -17,9 +17,12 @@ export async function readHostClaudeCredentials(): Promise<string> {
   const override = process.env.AGENTBOX_CLAUDE_CREDENTIALS_FILE;
   if (override) {
     if (!existsSync(override)) {
-      throw new AgentboxError(`AGENTBOX_CLAUDE_CREDENTIALS_FILE points at a missing file: ${override}`, {
-        fix: "Unset AGENTBOX_CLAUDE_CREDENTIALS_FILE or point it at an existing credentials JSON",
-      });
+      throw new AgentboxError(
+        `AGENTBOX_CLAUDE_CREDENTIALS_FILE points at a missing file: ${override}`,
+        {
+          fix: "Unset AGENTBOX_CLAUDE_CREDENTIALS_FILE or point it at an existing credentials JSON",
+        },
+      );
     }
     return readFileSync(override, "utf8");
   }
@@ -27,12 +30,23 @@ export async function readHostClaudeCredentials(): Promise<string> {
   if (process.platform === "darwin") {
     const user = process.env.USER;
     if (!user) {
-      throw new AgentboxError("Cannot read Claude credentials: USER env var is not set", {
-        fix: "Run from an interactive shell or set USER explicitly",
-      });
+      throw new AgentboxError(
+        "Cannot read Claude credentials: USER env var is not set",
+        {
+          fix: "Run from an interactive shell or set USER explicitly",
+        },
+      );
     }
     const proc = Bun.spawn({
-      cmd: ["security", "find-generic-password", "-s", "Claude Code-credentials", "-a", user, "-w"],
+      cmd: [
+        "security",
+        "find-generic-password",
+        "-s",
+        "Claude Code-credentials",
+        "-a",
+        user,
+        "-w",
+      ],
       stdout: "pipe",
       stderr: "pipe",
     });
@@ -42,10 +56,13 @@ export async function readHostClaudeCredentials(): Promise<string> {
       proc.exited,
     ]);
     if (code !== 0) {
-      throw new AgentboxError(`No Claude session credentials in Keychain (service "Claude Code-credentials", account "${user}")`, {
-        fix: 'Run `claude` once to authenticate, then re-run agentbox up. Or set auth: api_key in your config.',
-        context: { stderr: stderr.trim() || "<empty>" },
-      });
+      throw new AgentboxError(
+        `No Claude session credentials in Keychain (service "Claude Code-credentials", account "${user}")`,
+        {
+          fix: "Run `claude` once to authenticate, then re-run agentbox up. Or set auth: api_key in your config.",
+          context: { stderr: stderr.trim() || "<empty>" },
+        },
+      );
     }
     return stdout.trimEnd();
   }

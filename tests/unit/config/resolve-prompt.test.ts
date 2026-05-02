@@ -1,8 +1,8 @@
-import { test, expect } from "bun:test";
-import { resolvePrompt } from "../../../src/config/resolve-prompt.ts";
+import { expect, test } from "bun:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { resolvePrompt } from "../../../src/config/resolve-prompt.ts";
 
 test("returns inline string unchanged when not a file path", async () => {
   const r = await resolvePrompt("just text here");
