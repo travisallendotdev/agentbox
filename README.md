@@ -21,7 +21,7 @@ Declarative, pre-authorized Claude Code sandboxes on Docker [`sbx`](https://docs
 ## Install
 
 ```sh
-git clone https://github.com/travisallen6/agentbox
+git clone https://github.com/travisallendotdev/agentbox
 cd agentbox
 bun install
 bun run build           # produces dist/agentbox (darwin-arm64)
@@ -59,21 +59,21 @@ agentbox rm project-x        # tear down when done
 
 ## YAML schema
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `name` | string | no | Sandbox name. Defaults to filename stem. Ephemeral mode appends a short uuid. |
-| `mode` | `durable` \| `ephemeral` | **yes** | `durable` persists after the agent exits; `ephemeral` auto-removes. |
-| `auth` | `api_key` \| `session` | no | Credential type. Defaults to `api_key`. |
-| `base_template` | string | no | `sbx` base template image. Defaults to the Docker sandbox default. |
-| `secrets` | string[] | no | Secret names to inject from the `sbx` secret store (e.g., `[anthropic]`). |
-| `env` | map | no | Environment variables. Values support `${VAR}` shell expansion. |
-| `repos` | Repo[] | no | Repositories to clone into the sandbox workspace. See Repo schema below. |
-| `skills` | string[] | no | Paths to skill directories to inject into the agent's skills home. |
-| `plugins` | string[] | no | Plugin directories to inject into the agent's plugins home. |
-| `hooks` | Hooks | no | Claude Code hook configuration injected into the agent's settings. |
-| `lifecycle` | Lifecycle | no | Shell commands to run at `post_create`, `pre_agent`, and `on_stop` phases. |
-| `network` | Network | no | Network policy. `allow: [host]` permits host networking. |
-| `prompt` | string | no | Initial prompt sent to the agent on startup. Supports `${VAR}` expansion. |
+| Field           | Type                     | Required | Description                                                                   |
+| --------------- | ------------------------ | -------- | ----------------------------------------------------------------------------- |
+| `name`          | string                   | no       | Sandbox name. Defaults to filename stem. Ephemeral mode appends a short uuid. |
+| `mode`          | `durable` \| `ephemeral` | **yes**  | `durable` persists after the agent exits; `ephemeral` auto-removes.           |
+| `auth`          | `api_key` \| `session`   | no       | Credential type. Defaults to `api_key`.                                       |
+| `base_template` | string                   | no       | `sbx` base template image. Defaults to the Docker sandbox default.            |
+| `secrets`       | string[]                 | no       | Secret names to inject from the `sbx` secret store (e.g., `[anthropic]`).     |
+| `env`           | map                      | no       | Environment variables. Values support `${VAR}` shell expansion.               |
+| `repos`         | Repo[]                   | no       | Repositories to clone into the sandbox workspace. See Repo schema below.      |
+| `skills`        | string[]                 | no       | Paths to skill directories to inject into the agent's skills home.            |
+| `plugins`       | string[]                 | no       | Plugin directories to inject into the agent's plugins home.                   |
+| `hooks`         | Hooks                    | no       | Claude Code hook configuration injected into the agent's settings.            |
+| `lifecycle`     | Lifecycle                | no       | Shell commands to run at `post_create`, `pre_agent`, and `on_stop` phases.    |
+| `network`       | Network                  | no       | Network policy. `allow: [host]` permits host networking.                      |
+| `prompt`        | string                   | no       | Initial prompt sent to the agent on startup. Supports `${VAR}` expansion.     |
 
 ### Repo
 
@@ -96,9 +96,9 @@ repos:
 
 ```yaml
 lifecycle:
-  post_create: ["apt-get install -y ripgrep"]   # after VM is created
-  pre_agent:   ["cd /workspace && bun install"] # before agent starts
-  on_stop:     ["git push origin HEAD"]         # after agent stops
+  post_create: ["apt-get install -y ripgrep"] # after VM is created
+  pre_agent: ["cd /workspace && bun install"] # before agent starts
+  on_stop: ["git push origin HEAD"] # after agent stops
 ```
 
 ### Hooks
@@ -117,16 +117,16 @@ hooks:
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `agentbox up <path>.yaml [--name <n>] [--replace] [--keep] [--keep-on-error] [-v]` | Create, bootstrap, and start a sandbox |
-| `agentbox start <name>` | Resume a stopped durable sandbox |
-| `agentbox stop <name>` | Pause a running sandbox (durable mode) |
-| `agentbox shell <name>` | Open an interactive shell inside the sandbox |
-| `agentbox rm <name> [--force] [--prune-branches]` | Tear down sandbox, remove worktrees, drop registry entry |
-| `agentbox ls` | List all managed sandboxes with status |
-| `agentbox doctor` | Verify prerequisites (sbx, auth, secrets, templates) |
-| `agentbox init` | Generate an example YAML config in the current directory |
+| Command                                                                            | Description                                              |
+| ---------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `agentbox up <path>.yaml [--name <n>] [--replace] [--keep] [--keep-on-error] [-v]` | Create, bootstrap, and start a sandbox                   |
+| `agentbox start <name>`                                                            | Resume a stopped durable sandbox                         |
+| `agentbox stop <name>`                                                             | Pause a running sandbox (durable mode)                   |
+| `agentbox shell <name>`                                                            | Open an interactive shell inside the sandbox             |
+| `agentbox rm <name> [--force] [--prune-branches]`                                  | Tear down sandbox, remove worktrees, drop registry entry |
+| `agentbox ls`                                                                      | List all managed sandboxes with status                   |
+| `agentbox doctor`                                                                  | Verify prerequisites (sbx, auth, secrets, templates)     |
+| `agentbox init`                                                                    | Generate an example YAML config in the current directory |
 
 ## Architecture
 
