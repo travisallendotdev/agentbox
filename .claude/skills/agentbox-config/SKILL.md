@@ -96,13 +96,13 @@ prompt: |                 # optional string. Initial prompt sent to the agent.
 | Command | Description |
 |---------|-------------|
 | `agentbox up <path>.yaml [--name <n>] [--replace] [--keep] [--keep-on-error] [-v]` | Create, bootstrap, and start a sandbox |
-| `agentbox start <name>` | Resume a stopped durable sandbox |
+| `agentbox run <name>` | Resume a stopped durable sandbox |
 | `agentbox stop <name>` | Pause a running sandbox (durable mode only) |
 | `agentbox shell <name>` | Open an interactive shell inside the sandbox |
 | `agentbox rm <name> [--force] [--prune-branches]` | Tear down sandbox, remove worktrees, drop registry entry |
 | `agentbox ls` | List all managed sandboxes with status |
 | `agentbox doctor` | Verify prerequisites (sbx, auth, secrets, templates) |
-| `agentbox init` | Generate an example YAML config in the current directory |
+| `agentbox init [<path>] [--force]` | Generate an example YAML config in the current directory |
 
 ## Key constraints
 
