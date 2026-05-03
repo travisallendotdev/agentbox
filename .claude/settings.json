@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"$CLAUDE_TOOL_INPUT\" | grep -q 'tests/integration' && { sbx status >/dev/null 2>&1 || { echo 'sbx is not running — start it before running integration tests'; exit 2; }; }; exit 0"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun run format 2>&1 | tail -5"
+          }
+        ]
+      }
+    ]
+  }
+}
