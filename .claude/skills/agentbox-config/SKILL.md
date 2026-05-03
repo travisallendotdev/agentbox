@@ -46,8 +46,9 @@ repos:                    # optional. Repos to mount or clone into the sandbox w
     place: workspace      # optional. "workspace" (default) | "vm"
 
 skills:                   # optional string[]. Skill directories to inject into the agent.
-  - ~/.claude/skills/my-skill          # bare name → ~/.claude/skills/<name>
-  - ~/path/to/skill-dir                # absolute or ~-prefixed path
+  - my-skill                           # bare name → resolved from ~/.claude/skills/<name>
+  - ~/.claude/skills/my-skill          # explicit ~-prefixed absolute path
+  - ~/path/to/skill-dir                # any absolute or ~-prefixed path
   - superpowers:brainstorming          # plugin form: <plugin>:<skill>
 
 plugins:                  # optional string[]. Plugin directories to inject into the agent.
@@ -57,7 +58,8 @@ plugins:                  # optional string[]. Plugin directories to inject into
 
 hooks:                    # optional. Claude Code hooks injected into agent's settings.json.
                           # Each hook type is an array of {matcher, command} objects.
-                          # matcher is a regex string matched against the tool name.
+                          # matcher is a regex string matched against the tool name (PreToolUse/PostToolUse).
+                          # For Stop/UserPromptSubmit/SessionStart, matcher is required but does not filter by tool name.
   PreToolUse:
     - matcher: "Bash"
       command: "echo 'about to run bash'"
@@ -96,13 +98,13 @@ prompt: |                 # optional string. Initial prompt sent to the agent.
 | Command | Description |
 |---------|-------------|
 | `agentbox up <path>.yaml [--name <n>] [--replace] [--keep] [--keep-on-error] [-v]` | Create, bootstrap, and start a sandbox |
-| `agentbox run <name>` | Resume a stopped durable sandbox |
+| `agentbox run <name>` (alias: `start`) | Resume a stopped durable sandbox |
 | `agentbox stop <name>` | Pause a running sandbox (durable mode only) |
 | `agentbox shell <name>` | Open an interactive shell inside the sandbox |
 | `agentbox rm <name> [--force] [--prune-branches]` | Tear down sandbox, remove worktrees, drop registry entry |
 | `agentbox ls` | List all managed sandboxes with status |
 | `agentbox doctor` | Verify prerequisites (sbx, auth, secrets, templates) |
-| `agentbox init [<path>] [--force]` | Generate an example YAML config in the current directory |
+| `agentbox init [<path>] [--force]` | Generate an example YAML config (defaults to current directory) |
 
 ## Key constraints
 
@@ -111,4 +113,4 @@ prompt: |                 # optional string. Initial prompt sent to the agent.
 - **`repos` discriminated union**: `source` must be exactly `local` or `git`. No other values.
 - **`hooks` entries are objects** `{matcher: string, command: string}` — not shell arrays.
 - **`${VAR}` interpolation** only works in three places: `prompt`, `env` values, and `repos[].path`. It does NOT work in other string fields (e.g., `name`, `base_template`, `secrets`).
-- **`agentbox stop`** only works in `durable` mode. Ephemeral sandboxes auto-remove on exit.
+- **`agentbox stop` and `agentbox run`** only work in `durable` mode. Ephemeral sandboxes auto-remove on exit.
