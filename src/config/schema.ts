@@ -56,6 +56,7 @@ export const AgentboxConfigSchema = z
     name: z.string().optional(),
     mode: z.enum(["durable", "ephemeral"]),
     auth: AuthMode.optional(),
+    claude_config_dir: z.string().optional(),
     base_template: z.string().optional(),
     repos: z.array(Repo).optional(),
     skills: z.array(z.string()).optional(),

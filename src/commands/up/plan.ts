@@ -92,7 +92,7 @@ export async function buildUpPlan(flags: UpFlags): Promise<UpPlan> {
   // Load session credentials when auth mode requires it
   let claudeCredentials: string | undefined;
   if (authMode === "session") {
-    claudeCredentials = await readHostClaudeCredentials();
+    claudeCredentials = await readHostClaudeCredentials(cfg.claude_config_dir);
   }
 
   const repos = await resolveRepos(cfg.repos ?? [], name);
