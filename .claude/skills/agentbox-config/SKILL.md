@@ -22,6 +22,13 @@ mode: ephemeral           # REQUIRED. "durable" | "ephemeral"
 
 auth: api_key             # optional. "api_key" | "session". Defaults to api_key.
 
+claude_config_dir: ~/.claude-personal  # optional string. Path to a non-default Claude config dir.
+                          # When set with auth: session, agentbox reads credentials for that
+                          # account instead of the default ~/.claude account.
+                          # macOS: looks up "Claude Code-credentials-<sha256[:8]>" in Keychain.
+                          # Linux: reads .credentials.json from this dir.
+                          # Supports ~ expansion. Does NOT support ${VAR} interpolation.
+
 base_template: my-image   # optional string. sbx base template image name.
                           # Defaults to the Docker sandbox default.
 
@@ -112,5 +119,6 @@ prompt: |                 # optional string. Initial prompt sent to the agent.
 - **`mode` is the only required field** — all others are optional.
 - **`repos` discriminated union**: `source` must be exactly `local` or `git`. No other values.
 - **`hooks` entries are objects** `{matcher: string, command: string}` — not shell arrays.
-- **`${VAR}` interpolation** only works in three places: `prompt`, `env` values, and `repos[].path`. It does NOT work in other string fields (e.g., `name`, `base_template`, `secrets`).
+- **`${VAR}` interpolation** only works in three places: `prompt`, `env` values, and `repos[].path`. It does NOT work in other string fields (e.g., `name`, `base_template`, `secrets`, `claude_config_dir`).
+- **`claude_config_dir`** only affects credential lookup (auth). Skills, plugins, and settings resolution still use `CLAUDE_HOME` (env var). Only meaningful when `auth: session`.
 - **`agentbox stop` and `agentbox run`** only work in `durable` mode. Ephemeral sandboxes auto-remove on exit.
